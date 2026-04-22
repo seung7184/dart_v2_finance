@@ -1,0 +1,23 @@
+:root {
+  /* Dark theme (primary) */
+  --color-bg:            #0f1117;
+  --color-sidebar:       #0a0c10;
+  --color-surface:       #161b22;
+  --color-surface-hover: #1c2330;
+  --color-border:        #21262d;
+
+  /* Text */
+  --color-text:          #e6edf3;
+  --color-text-muted:    #8b949e;
+  --color-text-faint:    #484f58;
+
+  /* Semantic */
+  --color-accent:        #3b82f6;
+  --color-accent-muted:  #1d3a6e;
+  --color-positive:      #3fb950;
+  --color-warning:       #d29922;
+  --color-safe:          #58a6ff;   /* safe-to-spend number color */
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
