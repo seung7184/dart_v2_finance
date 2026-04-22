@@ -1,0 +1,817 @@
+# PHASE 0 — Bootstrap Prompt
+# 파일명: PHASE0_BOOTSTRAP.txt
+#
+# 사용법 (레포 루트에서):
+#   claude --dangerously-skip-permissions --max-turns 200 -p "$(cat PHASE0_BOOTSTRAP.txt)"
+#
+# 또는 VSCode Claude Code extension에서 이 파일 내용을 그대로 붙여넣기
+# ─────────────────────────────────────────────────────────────────────────────
+
+You are setting up the Dart Finance monorepo from scratch.
+
+CRITICAL FIRST STEP: Read CLAUDE.md completely before doing anything else.
+After reading it, say "CLAUDE.md read. Starting Phase 0."
+
+Then read these documents in order (they are in the repo root):
+1. 01_Product_Brief.md           — product scope (3 min read)
+2. 21_Data_Model.md              — full DB schema (skim sections 3–5)
+3. 23_Safe_To_Spend_Engine_Spec.md — engine policy (skim sections 3–5)
+4. Dart_Finance_Execution_Lock_v1_3.md — locked decisions
+
+After reading, summarize in 3 bullet points what V1 includes and what it explicitly excludes.
+Then proceed with the tasks below.
+
+---
+
+## YOUR CONSTRAINTS (enforce throughout this entire session)
+
+- Never touch .env files — only create .env.example with placeholders
+- Never initialize Supabase credentials
+- Never add Sentry/PostHog keys
+- After every file edit: run `pnpm tsc --noEmit` and fix errors before continuing
+- Commit after each numbered task below
+- Commit format: `feat(scope): description`
+- All amounts: INTEGER cents (never float)
+- Currency display: Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
+- Colors: CSS variables only
+- Sidebar: always dark
+
+---
+
+## TASK 1 — Reorganize the repo root
+
+The repo root currently has loose .md files and possibly other files.
+Move them into a proper structure.
+
+Create this folder structure:
+
+```
+dart-finance/
+├── docs/                          ← move all .md files here
+│   ├── 00_Dart_Finance_Master_Report_v1_2.md
+│   ├── 01_Product_Brief.md
+│   ├── 11_Lars_Interview_Guide.md
+│   ├── 21_Data_Model.md
+│   ├── 23_Safe_To_Spend_Engine_Spec.md
+│   ├── Dart_Finance_Execution_Lock_v1_3.md
+│   └── Dart_Finance_v1_3_Execution_Update.md
+├── prompts/                       ← move prompt/plan files here
+│   ├── PHASE_MONOREPO_SETUP.txt
+│   └── PHASE0_BOOTSTRAP.txt      ← this file
+├── design/                        ← move design outputs here
+│   ├── screens/                   ← HTML files from Claude Design
+│   │   ├── Mobile_Home.html
+│   │   ├── Mobile_Quick_Add.html
+│   │   ├── Web_Transactions.html
+│   │   ├── Web_CSV_Mapping.html
+│   │   └── Web_Why_This_Number.html
+│   └── dart_finance_core_screens.jsx
+├── CLAUDE.md                      ← stays at root (agent reads this first)
+├── .gitignore
+└── [monorepo files will be added in tasks below]
+```
+
+After moving files:
+- Update CLAUDE.md document map section to reflect new paths (docs/*)
+- Verify no files were lost: `ls docs/ prompts/ design/`
+- Commit: `chore: reorganize repo — docs, prompts, design folders`
+
+---
+
+## TASK 2 — Initialize monorepo tooling
+
+Create the following files at repo root:
+
+### pnpm-workspace.yaml
+```yaml
+packages:
+  - 'apps/*'
+  - 'packages/*'
+```
+
+### turbo.json
+```json
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "lint": {
+      "dependsOn": []
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "env": ["NODE_ENV"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
+```
+
+### Root package.json
+```json
+{
+  "name": "dart-finance",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "^5.4.0",
+    "prettier": "^3.2.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
+```
+
+### .gitignore
+Include: node_modules, .next, dist, .turbo, .env.local, .env.*.local, *.tsbuildinfo, coverage, .DS_Store
+
+Run: `pnpm install`
+Commit: `chore: initialize turborepo + pnpm workspace`
+
+---
+
+## TASK 3 — packages/config (shared configs)
+
+Create `packages/config/` with:
+
+### packages/config/package.json
+```json
+{
+  "name": "@dart/config",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./eslint": "./eslint/index.js",
+    "./tailwind": "./tailwind/index.js",
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/nextjs": "./typescript/nextjs.json",
+    "./typescript/react-native": "./typescript/react-native.json"
+  }
+}
+```
+
+### packages/config/typescript/base.json
+```json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  }
+}
+```
+
+### packages/config/typescript/nextjs.json
+```json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }]
+  },
+  "exclude": ["node_modules"]
+}
+```
+
+### packages/config/tailwind/index.js
+```js
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ['class'],
+  content: [],
+  theme: {
+    extend: {
+      colors: {
+        // All colors via CSS variables — never hardcode
+        bg: 'var(--color-bg)',
+        surface: 'var(--color-surface)',
+        'surface-hover': 'var(--color-surface-hover)',
+        border: 'var(--color-border)',
+        text: 'var(--color-text)',
+        'text-muted': 'var(--color-text-muted)',
+        'text-faint': 'var(--color-text-faint)',
+        accent: 'var(--color-accent)',
+        'accent-muted': 'var(--color-accent-muted)',
+        positive: 'var(--color-positive)',
+        warning: 'var(--color-warning)',
+        safe: 'var(--color-safe)',
+        sidebar: 'var(--color-sidebar)',
+      },
+      fontFamily: {
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+      },
+    },
+  },
+};
+```
+
+Commit: `chore(config): add shared typescript, eslint, tailwind configs`
+
+---
+
+## TASK 4 — packages/db (Drizzle schema)
+
+BEFORE WRITING CODE: Re-read docs/21_Data_Model.md section 3 (table definitions) and section 5 (CSV parser field mapping).
+
+Create `packages/db/` with this structure:
+```
+packages/db/
+├── src/
+│   ├── schema/
+│   │   ├── index.ts           ← re-exports all tables
+│   │   ├── users.ts
+│   │   ├── accounts.ts
+│   │   ├── transactions.ts    ← most important, has intent + review_status enums
+│   │   ├── import_batches.ts
+│   │   ├── import_rows.ts
+│   │   ├── transfer_links.ts
+│   │   ├── reimbursement_links.ts
+│   │   ├── categories.ts
+│   │   ├── rules.ts
+│   │   ├── recurring_series.ts
+│   │   ├── budget_periods.ts
+│   │   ├── sinking_funds.ts
+│   │   ├── safe_to_spend_snapshots.ts
+│   │   └── audit_logs.ts
+│   ├── client.ts              ← drizzle client (reads DATABASE_URL from env)
+│   └── index.ts               ← re-exports client + schema
+├── drizzle.config.ts
+├── package.json
+└── .env.example
+```
+
+### Key schema rules (from 21_Data_Model.md):
+
+**Enums to define (use Drizzle pgEnum):**
+
+```typescript
+// intent enum — 16 values
+export const intentEnum = pgEnum('intent', [
+  'living_expense', 'recurring_bill', 'income_salary', 'income_dividend',
+  'income_refund', 'income_other', 'transfer', 'reimbursement_out',
+  'reimbursement_in', 'investment_contribution', 'investment_buy',
+  'investment_sell', 'fee', 'tax', 'adjustment', 'unclassified'
+]);
+
+// review_status enum
+export const reviewStatusEnum = pgEnum('review_status', [
+  'pending', 'reviewed', 'needs_attention', 'auto_approved'
+]);
+
+// account_type enum
+export const accountTypeEnum = pgEnum('account_type', [
+  'checking', 'savings', 'credit_card', 'brokerage', 'pension', 'cash', 'manual_external'
+]);
+```
+
+**All tables must have:**
+- `id: uuid('id').primaryKey().defaultRandom()`
+- `userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' })`
+- `createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()`
+- `updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()`
+
+**Amount fields:**
+- Always `integer('amount').notNull()` — cents, never numeric/float
+- Always paired with `text('currency').notNull().default('EUR')`
+
+**transactions table — critical fields:**
+- `source: text('source').notNull()` — 'ing_csv' | 't212_csv' | 'manual'
+- `externalId: text('external_id')` — nullable (ING has none, T212 has it)
+- `occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull()`
+- `amount: integer('amount').notNull()` — negative = outflow, positive = inflow
+- `rawDescription: text('raw_description').notNull()` — never modify
+- `intent: intentEnum('intent').default('unclassified').notNull()`
+- `reviewStatus: reviewStatusEnum('review_status').default('pending').notNull()`
+- Unique constraint: `(account_id, external_id)` when external_id is not null
+- Indexes: `(user_id, occurred_at DESC)`, `(user_id, intent)`, `(user_id, review_status)`
+
+### packages/db/package.json
+```json
+{
+  "name": "@dart/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.30.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "@dart/config": "workspace:*",
+    "drizzle-kit": "^0.21.0",
+    "typescript": "^5.4.0"
+  }
+}
+```
+
+### packages/db/.env.example
+```
+DATABASE_URL=postgresql://postgres:password@localhost:54322/postgres
+```
+
+After creating all schema files:
+- Run `pnpm --filter @dart/db typecheck` → fix all errors
+- Commit: `feat(db): add Drizzle schema for all V1 tables`
+
+---
+
+## TASK 5 — packages/core (domain types + engine skeleton)
+
+BEFORE WRITING CODE: Re-read docs/23_Safe_To_Spend_Engine_Spec.md sections 2, 3, 4, 8, 10.
+
+Create `packages/core/` with:
+```
+packages/core/
+├── src/
+│   ├── types/
+│   │   ├── index.ts
+│   │   ├── account.ts         ← AccountType, Account interface
+│   │   ├── transaction.ts     ← Intent enum (mirrors DB), Transaction interface
+│   │   └── engine.ts          ← SafeToSpendResult, PolicyConfig, AssumptionEntry, Warning
+│   ├── safe-to-spend/
+│   │   ├── engine.ts          ← PLACEHOLDER ONLY (see below)
+│   │   ├── policy.ts          ← PolicyConfig reader/validator
+│   │   └── __tests__/
+│   │       ├── test-utils.ts  ← buildTestContext helper
+│   │       └── [copy safe_to_spend_tests.ts content into separate files here]
+│   ├── formatters/
+│   │   └── currency.ts        ← EUR formatter using nl-NL locale
+│   └── index.ts               ← re-exports
+├── package.json
+└── tsconfig.json
+```
+
+### Critical types to define in src/types/engine.ts:
+
+```typescript
+export interface AssumptionEntry {
+  key: string;
+  label: string;           // human-readable, for drill-down UI
+  value: number | boolean | string;
+  unit?: 'cents' | 'days' | 'boolean';
+}
+
+export interface Warning {
+  code: string;            // e.g. 'PAYDAY_TODAY_OR_OVERDUE', 'STALE_IMPORT_DATA'
+  severity: 'info' | 'warning' | 'error';
+  message: string;
+}
+
+export interface ProtectedObligations {
+  upcoming_bills_cents: number;
+  sinking_fund_cents: number;
+  min_buffer_cents: number;
+  investing_cents: number;
+  anomaly_reserve_cents: number;
+  total_cents: number;
+}
+
+export interface SafeToSpendResult {
+  value_cents: number;
+  computed_at: Date;
+  days_until_payday: number;
+  available_cash_cents: number;
+  protected_obligations: ProtectedObligations;
+  spendable_pool_cents: number;
+  investing_cents: number;
+  sinking_fund_cents: number;
+  min_buffer_cents: number;
+  anomaly_reserve_cents: number;
+  investing_protected: boolean;
+  assumption_trail: AssumptionEntry[];
+  warnings: Warning[];
+}
+
+export interface PolicyConfig {
+  payday_date: Date | null;
+  planned_investing_protected: boolean;    // default: true
+  accessible_savings_account_ids: string[];
+  minimum_cash_buffer_cents: number;       // default: 0
+  planned_investing_cents: number;         // default: 0
+}
+```
+
+### src/safe-to-spend/engine.ts — PLACEHOLDER ONLY:
+
+```typescript
+/**
+ * Safe-to-Spend Engine
+ *
+ * STATUS: PLACEHOLDER — DO NOT IMPLEMENT YET
+ *
+ * Implementation checklist:
+ * [ ] Read docs/23_Safe_To_Spend_Engine_Spec.md fully
+ * [ ] Confirm test files exist in __tests__/
+ * [ ] Run tests (expect failures — TDD)
+ * [ ] Implement to make tests pass one group at a time
+ * [ ] Final: pnpm test passes all 50 cases
+ */
+
+import type { SafeToSpendResult, PolicyConfig } from '../types/engine';
+
+export interface ComputeContext {
+  policy: PolicyConfig;
+  accounts: Array<{ id: string; type: string; balance_cents: number; is_accessible_savings: boolean }>;
+  transactions: Array<{ amount: number; intent: string; review_status: string; occurred_at: Date; account_type: string }>;
+  recurring_series: Array<{ amount: number; next_expected_at: Date; intent: string }>;
+  sinking_funds: Array<{ monthly_allocation_cents: number; is_active: boolean }>;
+  last_import_at: Date | null;
+  today: Date;
+}
+
+export function computeSafeToSpend(_ctx: ComputeContext): SafeToSpendResult {
+  throw new Error(
+    'NOT_IMPLEMENTED: Read docs/23_Safe_To_Spend_Engine_Spec.md and write tests first.\n' +
+    'Test file: packages/core/src/safe-to-spend/__tests__/'
+  );
+}
+```
+
+### src/formatters/currency.ts:
+
+```typescript
+const formatter = new Intl.NumberFormat('nl-NL', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Format cents to EUR string. Input: 3720 → "€ 37,20" */
+export function formatEUR(cents: number): string {
+  return formatter.format(cents / 100);
+}
+
+/** Parse EUR string back to cents. Input: "37,20" → 3720 */
+export function parseEURtoCents(value: string): number {
+  const normalized = value.replace(/[€\s.]/g, '').replace(',', '.');
+  return Math.round(parseFloat(normalized) * 100);
+}
+```
+
+### Copy test cases:
+Take the content of `safe_to_spend_tests.ts` from the repo root (if present) and split into separate files in `__tests__/`:
+- `payday-boundaries.test.ts` — Group A (9 tests)
+- `investment-protection.test.ts` — Group B (8 tests)
+- `reimbursement.test.ts` — Group C (7 tests)
+- `transaction-intent.test.ts` — Group D (6 tests)
+- `edge-cases.test.ts` — Group E (8 tests)
+- `stale-data-anomalies.test.ts` — Group F (7 tests)
+- `account-inclusion.test.ts` — Group G (5 tests)
+- `test-utils.ts` — shared buildTestContext helper
+
+For test-utils.ts, create a `buildTestContext` function that:
+- Takes a partial override object
+- Returns a full `ComputeContext` with sensible defaults:
+  - today = new Date('2026-04-22')
+  - paydayDate = new Date('2026-04-30') (8 days away)
+  - availableCash = 100000 (€1000)
+  - investingProtected = true
+  - plannedInvesting = 0
+  - lastImportAt = new Date() (today)
+  - single checking account with the availableCash balance
+
+Run: `pnpm --filter @dart/core typecheck` → fix all errors
+Run: `pnpm --filter @dart/core test` → expect 50 failures (engine not implemented)
+Commit: `feat(core): scaffold domain types, engine placeholder, 50 test cases`
+
+---
+
+## TASK 6 — packages/csv-parsers (ING + T212 skeletons)
+
+Create `packages/csv-parsers/` with:
+```
+packages/csv-parsers/
+├── src/
+│   ├── ing/
+│   │   ├── types.ts      ← ING CSV row interface
+│   │   ├── parser.ts     ← parse function (stub)
+│   │   └── mapping.ts    ← column → Dart field mapping
+│   ├── t212/
+│   │   ├── types.ts      ← T212 CSV row interface
+│   │   ├── parser.ts     ← parse function (stub)
+│   │   └── mapping.ts
+│   ├── shared/
+│   │   ├── dedup.ts      ← dedup logic
+│   │   ├── types.ts      ← ParsedRow, ParseResult shared types
+│   │   └── validators.ts ← required column validation
+│   └── index.ts
+├── package.json
+└── tsconfig.json
+```
+
+### ING types (from docs/21_Data_Model.md section 5):
+```typescript
+export interface INGRawRow {
+  Datum: string;                    // 'DD-MM-YYYY'
+  'Naam / Omschrijving': string;
+  Rekening: string;
+  Tegenrekening: string;
+  Code: string;
+  'Af Bij': 'Af' | 'Bij';
+  'Bedrag (EUR)': string;           // '28,40' (comma decimal)
+  Mutatiesoort: string;
+  Mededelingen: string;
+}
+```
+
+### T212 types:
+```typescript
+export interface T212RawRow {
+  Action: string;       // 'Deposit', 'Market buy', 'Market sell', 'Dividend', etc.
+  Time: string;         // ISO datetime
+  Ticker: string;
+  Name: string;
+  'No. of shares': string;
+  'Price / share': string;
+  Currency: string;
+  'Exchange rate': string;
+  Total: string;
+  ID: string;           // external_id
+}
+```
+
+### Shared ParsedRow type:
+```typescript
+export interface ParsedRow {
+  external_id: string | null;
+  occurred_at: Date;
+  amount_cents: number;       // already converted, signed
+  currency: string;
+  raw_description: string;
+  source: 'ing_csv' | 't212_csv';
+  intent_hint: string | null; // pre-classification hint (not final)
+  dedup_hash: string;         // SHA-256 of (account_id + occurred_at + amount + raw_description)
+}
+```
+
+Parser functions should be stubs that throw `new Error('Not implemented')` — implementation comes later.
+
+Commit: `feat(csv-parsers): scaffold ING + T212 parser types and stubs`
+
+---
+
+## TASK 7 — packages/ui (design tokens + base components)
+
+Create `packages/ui/` with:
+```
+packages/ui/
+├── src/
+│   ├── tokens/
+│   │   ├── colors.css        ← CSS custom properties
+│   │   └── typography.css    ← type scale
+│   ├── components/
+│   │   ├── Button.tsx
+│   │   ├── Card.tsx
+│   │   ├── Input.tsx
+│   │   ├── Badge.tsx
+│   │   └── index.ts
+│   └── index.ts
+├── package.json
+└── tsconfig.json
+```
+
+### src/tokens/colors.css — Dart Finance design tokens:
+
+```css
+:root {
+  /* Dark theme (primary) */
+  --color-bg:            #0f1117;
+  --color-sidebar:       #0a0c10;
+  --color-surface:       #161b22;
+  --color-surface-hover: #1c2330;
+  --color-border:        #21262d;
+
+  /* Text */
+  --color-text:          #e6edf3;
+  --color-text-muted:    #8b949e;
+  --color-text-faint:    #484f58;
+
+  /* Semantic */
+  --color-accent:        #3b82f6;
+  --color-accent-muted:  #1d3a6e;
+  --color-positive:      #3fb950;
+  --color-warning:       #d29922;
+  --color-safe:          #58a6ff;   /* safe-to-spend number color */
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+```
+
+### Badge component — intent badge variants:
+```typescript
+type BadgeVariant = 'living' | 'investing' | 'transfer' | 'reimbursement' | 'warning' | 'protected';
+```
+
+Commit: `feat(ui): add design tokens and base component scaffolds`
+
+---
+
+## TASK 8 — apps/web (Next.js 15 scaffold)
+
+Create `apps/web/` with:
+```
+apps/web/
+├── app/
+│   ├── layout.tsx              ← root layout, imports tokens/colors.css
+│   ├── page.tsx                ← landing: "Dart Finance — coming soon"
+│   ├── globals.css             ← imports @dart/ui tokens
+│   └── (app)/
+│       ├── layout.tsx          ← app shell: dark sidebar + main area
+│       ├── dashboard/
+│       │   └── page.tsx        ← placeholder: "Dashboard — coming soon"
+│       ├── transactions/
+│       │   └── page.tsx        ← placeholder: "Transactions — coming soon"
+│       ├── import/
+│       │   └── page.tsx        ← placeholder: "Import — coming soon"
+│       └── why/
+│           └── page.tsx        ← placeholder: "Why This Number — coming soon"
+├── next.config.ts
+├── tailwind.config.ts
+├── tsconfig.json
+├── package.json
+└── .env.example
+```
+
+### App shell layout requirement:
+- Left sidebar: always `background: var(--color-sidebar)`, fixed width 240px
+- Main area: `background: var(--color-bg)`
+- Font: Plus Jakarta Sans via Google Fonts or local
+- Import `@dart/ui/src/tokens/colors.css` in globals.css
+
+### .env.example:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Run: `pnpm --filter @dart/web typecheck` → fix all errors
+Run: `pnpm --filter @dart/web build` → must succeed
+Commit: `feat(web): scaffold Next.js 15 app with shell layout and placeholder pages`
+
+---
+
+## TASK 9 — apps/mobile (Expo scaffold)
+
+Create `apps/mobile/` with:
+```
+apps/mobile/
+├── app/
+│   ├── _layout.tsx             ← root layout with NativeWind
+│   └── (tabs)/
+│       ├── _layout.tsx         ← bottom tab navigator
+│       └── index.tsx           ← home screen placeholder
+├── app.json
+├── babel.config.js
+├── tailwind.config.js
+├── tsconfig.json
+├── package.json
+└── .env.example
+```
+
+### Home screen placeholder (app/(tabs)/index.tsx):
+```typescript
+import { View, Text } from 'react-native';
+
+export default function HomeScreen() {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0f1117', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ color: '#58a6ff', fontSize: 32, fontWeight: '700' }}>
+        € --,--
+      </Text>
+      <Text style={{ color: '#8b949e', fontSize: 14, marginTop: 8 }}>
+        Safe to spend today — coming soon
+      </Text>
+    </View>
+  );
+}
+```
+
+Commit: `feat(mobile): scaffold Expo app with home screen placeholder`
+
+---
+
+## TASK 10 — GitHub Actions CI
+
+Create `.github/workflows/ci.yml`:
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+```
+
+Commit: `chore(ci): add GitHub Actions typecheck + lint + test`
+
+---
+
+## FINAL CHECKLIST
+
+When all 10 tasks are complete, run these in order:
+
+```bash
+pnpm install                    # must succeed, 0 errors
+pnpm tsc --noEmit               # must succeed, 0 type errors
+pnpm build                      # must succeed (web + mobile placeholders)
+pnpm test                       # 50 failures expected (engine not implemented)
+```
+
+Then print this summary:
+```
+=== PHASE 0 COMPLETE ===
+
+Folder structure:
+- docs/          [N files]
+- prompts/       [N files]
+- design/        [N files]
+- packages/      config, db, core, ui, csv-parsers
+- apps/          web, mobile
+- .github/       ci.yml
+
+Type errors:  0
+Build:        ✓
+Tests:        50 failing (expected — engine placeholder)
+
+Next steps:
+1. Add Supabase project URL + anon key to apps/web/.env.local (manually)
+2. Run: pnpm --filter @dart/db db:migrate (after adding DB URL)
+3. Start engine implementation: read 23_Safe_To_Spend_Engine_Spec.md → implement → make 50 tests pass
+```
+
+If anything failed, list it explicitly and suggest a fix.
+Do NOT mark Phase 0 complete if typecheck fails or build fails.

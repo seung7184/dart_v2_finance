@@ -1,0 +1,286 @@
+# Dart Finance — Monorepo Setup Prompt
+# 파일명: PHASE_MONOREPO_SETUP.txt
+# 사용법: claude --dangerously-skip-permissions --max-turns 200 -p "$(cat PHASE_MONOREPO_SETUP.txt)"
+
+You are setting up the Dart Finance monorepo from scratch.
+
+CRITICAL: Read this entire prompt before taking any action.
+
+---
+
+## Project Context
+
+Dart Finance is a calm, investor-aware safe-to-spend app for employed people in the Netherlands.
+- Web + mobile monorepo (Turborepo + pnpm)
+- Web: Next.js 15 App Router (Vercel)
+- Mobile: Expo + expo-router (EAS)
+- DB: Supabase (EU Frankfurt region) + Drizzle ORM
+- UI: shadcn/ui (web) + NativeWind (mobile)
+
+---
+
+## Constraints (read before every edit)
+
+1. Never touch .env files — create .env.example only
+2. Never initialize Supabase credentials — I add those manually
+3. Never add Sentry or PostHog keys — I add those manually
+4. After every significant edit, run: pnpm tsc --noEmit
+5. If typecheck fails, fix it before continuing
+6. Commit after each major step with a clear message
+7. Currency display: always use Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
+8. Colors: CSS variables only (no hardcoded hex in components)
+9. Sidebar: always dark background
+
+---
+
+## Repository Structure to Create
+
+```
+dart-finance/
+├── apps/
+│   ├── web/                    # Next.js 15 App Router
+│   └── mobile/                 # Expo + expo-router
+├── packages/
+│   ├── core/                   # Domain logic (money engine, safe-to-spend)
+│   ├── db/                     # Drizzle schema + migrations
+│   ├── ui/                     # Shared UI components (shadcn/ui base)
+│   ├── config/                 # Shared eslint, tsconfig, tailwind config
+│   └── csv-parsers/            # ING + T212 CSV parsers
+├── supabase/
+│   ├── migrations/
+│   └── seed/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── CLAUDE.md                   # Agent rules (create this first)
+├── turbo.json
+├── pnpm-workspace.yaml
+└── package.json
+```
+
+---
+
+## Step-by-Step Goals
+
+### Step 1: Create CLAUDE.md
+
+Content of CLAUDE.md:
+```
+# CLAUDE.md — Dart Finance Agent Rules
+
+Read this file before every edit. No exceptions.
+
+## Rules
+1. Read CLAUDE.md first (you are doing this now)
+2. Read relevant files before editing them
+3. After every edit: run `pnpm tsc --noEmit`. Fix all errors before continuing.
+4. DO NOT TOUCH: .env files, supabase/config.toml, CLAUDE.md itself
+5. Currency: Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
+6. Colors: CSS variables only. Never hardcode hex values in components.
+7. Sidebar: always dark (bg-sidebar class or equivalent)
+8. Commit message format: feat(scope): description
+
+## Architecture
+- packages/core: all business logic. No UI imports.
+- packages/db: Drizzle schema only. No business logic.
+- packages/ui: shared components only. No business logic.
+- apps/web: Next.js 15 App Router. Imports from packages.
+- apps/mobile: Expo. Imports from packages/core and packages/ui where possible.
+
+## Safe-to-spend engine
+Located at: packages/core/src/safe-to-spend/engine.ts
+Policy document: 23_Safe_To_Spend_Engine_Spec.md
+DO NOT implement the engine without reading the spec first.
+
+## What NOT to do
+- Do not add bank sync / open banking
+- Do not add AI chat features
+- Do not support CSV parsers beyond ING and Trading 212 in V1
+- Do not add forecast/simulation features in V1
+```
+
+Commit: `chore: add CLAUDE.md`
+
+---
+
+### Step 2: Initialize monorepo root
+
+Create:
+- `pnpm-workspace.yaml` — workspace config
+- `turbo.json` — pipeline config (build, lint, typecheck, test)
+- Root `package.json` with scripts: build, dev, lint, typecheck, test
+- `.gitignore` — standard Node + Next.js + Expo
+
+Commit: `chore: initialize turborepo monorepo`
+
+---
+
+### Step 3: Shared config package
+
+Create `packages/config/` with:
+- `packages/config/eslint/index.js` — base ESLint config (TypeScript + React)
+- `packages/config/typescript/base.json` — base tsconfig
+- `packages/config/typescript/nextjs.json` — Next.js tsconfig extension
+- `packages/config/typescript/react-native.json` — Expo tsconfig extension
+- `packages/config/tailwind/index.js` — shared Tailwind config
+
+Commit: `chore(config): add shared eslint, tsconfig, tailwind config`
+
+---
+
+### Step 4: packages/db — Drizzle schema
+
+Create `packages/db/` with:
+- `package.json`
+- `src/schema/index.ts` — re-exports all tables
+- `src/schema/users.ts` — users table
+- `src/schema/accounts.ts` — accounts table (with account_type enum)
+- `src/schema/transactions.ts` — transactions table (with intent enum, review_status enum)
+- `src/schema/import_batches.ts`
+- `src/schema/import_rows.ts`
+- `src/schema/transfer_links.ts`
+- `src/schema/reimbursement_links.ts`
+- `src/schema/categories.ts`
+- `src/schema/rules.ts`
+- `src/schema/recurring_series.ts`
+- `src/schema/budget_periods.ts`
+- `src/schema/sinking_funds.ts`
+- `src/schema/safe_to_spend_snapshots.ts`
+- `src/schema/audit_logs.ts`
+- `src/client.ts` — Drizzle client (reads DATABASE_URL from env)
+- `drizzle.config.ts`
+- `.env.example` — DATABASE_URL=postgresql://...
+
+Key schema rules:
+- All amounts: INTEGER (cents, never float)
+- All PKs: UUID (gen_random_uuid())
+- All tables: user_id UUID NOT NULL + created_at + updated_at
+- Enums: use Drizzle pgEnum
+- Intent enum values: living_expense, recurring_bill, income_salary, income_dividend,
+  income_refund, income_other, transfer, reimbursement_out, reimbursement_in,
+  investment_contribution, investment_buy, investment_sell, fee, tax, adjustment, unclassified
+- Review status: pending, reviewed, needs_attention, auto_approved
+- Account type: checking, savings, credit_card, brokerage, pension, cash, manual_external
+
+Commit: `feat(db): add Drizzle schema for all V1 tables`
+
+---
+
+### Step 5: packages/core — domain logic skeleton
+
+Create `packages/core/` with:
+- `package.json`
+- `src/index.ts` — re-exports
+- `src/types/transaction.ts` — TypeScript types (mirrors DB schema, for business logic)
+- `src/types/account.ts`
+- `src/types/engine.ts` — SafeToSpendResult, PolicyConfig, AssumptionEntry, Warning types
+- `src/safe-to-spend/` — directory (empty for now, engine comes later)
+- `src/safe-to-spend/engine.ts` — PLACEHOLDER ONLY:
+  ```typescript
+  // TODO: implement after reading 23_Safe_To_Spend_Engine_Spec.md
+  // DO NOT implement this file until test cases exist
+  export function computeSafeToSpend(): never {
+    throw new Error('Not implemented — read spec and write tests first');
+  }
+  ```
+- `src/csv-parsers/` — directory (placeholder)
+- `src/formatters/currency.ts` — EUR formatting utility using nl-NL locale
+
+Commit: `feat(core): scaffold domain types and safe-to-spend placeholder`
+
+---
+
+### Step 6: packages/csv-parsers — ING + T212 parsers skeleton
+
+Create `packages/csv-parsers/` with:
+- `package.json`
+- `src/index.ts`
+- `src/ing/parser.ts` — ING CSV parser skeleton with types
+- `src/ing/types.ts` — ING row type (Datum, Naam/Omschrijving, Rekening, Bedrag, Af Bij, etc.)
+- `src/t212/parser.ts` — T212 CSV parser skeleton
+- `src/t212/types.ts` — T212 row type (Action, Time, Ticker, Total, Currency, ID)
+- `src/shared/dedup.ts` — deduplication logic (hash-based)
+- `src/shared/field-mapping.ts` — CSV column → Dart field mapping types
+
+NOTE: Implement type definitions and interfaces fully. Leave parsing logic as TODO stubs.
+
+Commit: `feat(csv-parsers): scaffold ING and T212 parser skeletons with types`
+
+---
+
+### Step 7: packages/ui — shadcn/ui base
+
+Create `packages/ui/` with:
+- `package.json`
+- `src/index.ts`
+- Base shadcn/ui components: Button, Card, Input, Badge, Tabs, Modal/Dialog
+- `src/tokens/colors.css` — CSS custom properties for color tokens
+  (--color-bg, --color-surface, --color-border, --color-text, --color-text-muted,
+   --color-accent, --color-positive, --color-warning, --color-safe)
+- `src/tokens/typography.css` — type scale
+- Sidebar component: always dark background (bg-[var(--color-sidebar)])
+
+Commit: `feat(ui): add shadcn/ui base components and design tokens`
+
+---
+
+### Step 8: apps/web — Next.js 15 scaffold
+
+Create `apps/web/` with:
+- `package.json`
+- `next.config.ts`
+- `app/layout.tsx` — root layout with dark sidebar shell
+- `app/page.tsx` — empty landing: "Dart Finance — coming soon"
+- `app/(app)/layout.tsx` — authenticated app shell (sidebar + main area)
+- `app/(app)/dashboard/page.tsx` — placeholder: "Dashboard — coming soon"
+- `app/(app)/transactions/page.tsx` — placeholder
+- `app/(app)/import/page.tsx` — placeholder
+- `tailwind.config.ts` — extends packages/config/tailwind
+- `tsconfig.json` — extends packages/config/typescript/nextjs.json
+- `.env.example` — NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+Commit: `feat(web): scaffold Next.js 15 App Router with app shell`
+
+---
+
+### Step 9: apps/mobile — Expo scaffold
+
+Create `apps/mobile/` with:
+- `package.json`
+- `app.json` — Expo config
+- `app/(tabs)/index.tsx` — home screen placeholder: "Safe to spend today — coming soon"
+- `app/(tabs)/_layout.tsx` — tab layout
+- `babel.config.js`
+- `tsconfig.json` — extends packages/config/typescript/react-native.json
+- `tailwind.config.js` — NativeWind config
+- `.env.example`
+
+Commit: `feat(mobile): scaffold Expo app with home screen placeholder`
+
+---
+
+### Step 10: GitHub Actions CI
+
+Create `.github/workflows/ci.yml`:
+- Triggers: push to main, pull_request to main
+- Steps: pnpm install → lint → typecheck → test
+- Node version: 20
+- pnpm version: 9
+
+Commit: `chore(ci): add GitHub Actions lint + typecheck + test workflow`
+
+---
+
+## Final Summary
+
+When all steps are complete:
+1. Run `pnpm install` — must succeed
+2. Run `pnpm build` — must succeed (even with placeholder pages)
+3. Run `pnpm tsc --noEmit` — must succeed with 0 errors
+4. Print a summary of what was created and any unresolved warnings
+
+Do NOT:
+- Add Supabase credentials
+- Add Sentry / PostHog keys
+- Implement the safe-to-spend engine (placeholder only)
+- Add any business logic beyond type definitions and stubs
