@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getAuthenticatedUserIdFromCookieHeader } from '@/auth/session';
 import { createImportRepository } from '@/imports/repository';
 import {
   executeImport,
-  getImportPreview,
+  getImportPreviewForUser,
   isSupportedBank,
 } from '@/imports/service';
 
@@ -13,6 +14,14 @@ function getStringField(formData: FormData, key: string): string {
 
 export async function POST(request: Request) {
   try {
+    const authenticatedUserId = getAuthenticatedUserIdFromCookieHeader(
+      request.headers.get('cookie'),
+    );
+
+    if (!authenticatedUserId) {
+      return NextResponse.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const mode = getStringField(formData, 'mode');
     const bank = getStringField(formData, 'bank');
@@ -37,11 +46,12 @@ export async function POST(request: Request) {
     }
 
     if (mode === 'preview') {
-      const preview = getImportPreview({
+      const preview = await getImportPreviewForUser({
         accountId,
+        authenticatedUserId,
         bank,
         csvContent,
-      });
+      }, createImportRepository());
 
       return NextResponse.json(preview);
     }
@@ -50,6 +60,7 @@ export async function POST(request: Request) {
       const result = await executeImport(
         {
           accountId,
+          authenticatedUserId,
           bank,
           csvContent,
           originalFilename: file.name,
@@ -63,7 +74,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid import mode.' }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown import error';
-    const status = message === 'ACCOUNT_NOT_FOUND' ? 404 : 500;
+    const status =
+      message === 'ACCOUNT_NOT_FOUND' ? 404 : message === 'ACCOUNT_ACCESS_DENIED' ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

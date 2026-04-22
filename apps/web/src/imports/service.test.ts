@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   executeImport,
+  getImportPreviewForUser,
   type ImportBatchRecord,
   type ImportRepository,
 } from './service';
@@ -165,6 +166,7 @@ describe('executeImport', () => {
     const result = await executeImport(
       {
         accountId: 'account-ing',
+        authenticatedUserId: 'user-1',
         bank: 'ING',
         csvContent,
         originalFilename: 'ing.csv',
@@ -208,6 +210,7 @@ describe('executeImport', () => {
     const result = await executeImport(
       {
         accountId: 'account-t212',
+        authenticatedUserId: 'user-2',
         bank: 'T212',
         csvContent,
         originalFilename: 't212.csv',
@@ -224,5 +227,50 @@ describe('executeImport', () => {
       intent: 'investment_contribution',
       source: 't212_csv',
     });
+  });
+
+  it('rejects imports when the authenticated user does not own the account', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-ing', 'user-1');
+
+    const csvContent = [
+      'Datum;Naam / Omschrijving;Rekening;Tegenrekening;Code;Af Bij;Bedrag (EUR);Mutatiesoort;Mededelingen',
+      '02-04-2026;Coffee Company;;;;Af;3,50;;',
+    ].join('\n');
+
+    await expect(
+      executeImport(
+        {
+          accountId: 'account-ing',
+          authenticatedUserId: 'user-2',
+          bank: 'ING',
+          csvContent,
+          originalFilename: 'ing.csv',
+        },
+        repository,
+      ),
+    ).rejects.toThrow('ACCOUNT_ACCESS_DENIED');
+  });
+
+  it('rejects previews when the authenticated user does not own the account', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-ing', 'user-1');
+
+    const csvContent = [
+      'Datum;Naam / Omschrijving;Rekening;Tegenrekening;Code;Af Bij;Bedrag (EUR);Mutatiesoort;Mededelingen',
+      '02-04-2026;Coffee Company;;;;Af;3,50;;',
+    ].join('\n');
+
+    await expect(
+      getImportPreviewForUser(
+        {
+          accountId: 'account-ing',
+          authenticatedUserId: 'user-2',
+          bank: 'ING',
+          csvContent,
+        },
+        repository,
+      ),
+    ).rejects.toThrow('ACCOUNT_ACCESS_DENIED');
   });
 });

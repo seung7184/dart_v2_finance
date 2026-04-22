@@ -167,19 +167,59 @@ export function getImportPreview(input: {
   };
 }
 
+async function assertAccountAccess(input: {
+  accountId: string;
+  authenticatedUserId: string;
+}, repository: ImportRepository): Promise<ImportAccount> {
+  const account = await repository.findAccount(input.accountId);
+  if (!account) {
+    throw new Error('ACCOUNT_NOT_FOUND');
+  }
+
+  if (account.userId !== input.authenticatedUserId) {
+    throw new Error('ACCOUNT_ACCESS_DENIED');
+  }
+
+  return account;
+}
+
+export async function getImportPreviewForUser(
+  input: {
+    accountId: string;
+    authenticatedUserId: string;
+    bank: SupportedBank;
+    csvContent: string;
+  },
+  repository: ImportRepository,
+): Promise<ImportPreview> {
+  await assertAccountAccess(
+    {
+      accountId: input.accountId,
+      authenticatedUserId: input.authenticatedUserId,
+    },
+    repository,
+  );
+
+  return getImportPreview(input);
+}
+
 export async function executeImport(
   input: {
     accountId: string;
+    authenticatedUserId: string;
     bank: SupportedBank;
     csvContent: string;
     originalFilename: string;
   },
   repository: ImportRepository,
 ): Promise<ImportExecutionResult> {
-  const account = await repository.findAccount(input.accountId);
-  if (!account) {
-    throw new Error('ACCOUNT_NOT_FOUND');
-  }
+  const account = await assertAccountAccess(
+    {
+      accountId: input.accountId,
+      authenticatedUserId: input.authenticatedUserId,
+    },
+    repository,
+  );
 
   const parseResult = parseImport(input.bank, input.csvContent, input.accountId);
   const rowCount = totalRowCount(parseResult);

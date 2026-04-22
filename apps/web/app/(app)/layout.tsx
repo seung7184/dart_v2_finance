@@ -1,4 +1,5 @@
 import React from 'react';
+import { requireAuthenticatedAppUser } from '@/auth/session';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard' },
@@ -7,11 +8,13 @@ const NAV_ITEMS = [
   { label: 'Why This Number?', href: '/why' },
 ];
 
-export default function AppShellLayout({
+export default async function AppShellLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAuthenticatedAppUser();
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {/* Sidebar — always dark */}
