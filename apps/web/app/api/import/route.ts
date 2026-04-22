@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUserIdFromCookieHeader } from '@/auth/session';
 import { createImportRepository } from '@/imports/repository';
+import { captureServerException } from '@/observability/server';
 import {
   executeImport,
   getImportPreviewForUser,
@@ -73,6 +74,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'Invalid import mode.' }, { status: 400 });
   } catch (error) {
+    captureServerException(error, {
+      context: 'api_import',
+    });
     const message = error instanceof Error ? error.message : 'Unknown import error';
     const status =
       message === 'ACCOUNT_NOT_FOUND' ? 404 : message === 'ACCOUNT_ACCESS_DENIED' ? 403 : 500;

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Button, Card } from '@dart/ui';
-import { OnboardingLayout, StepActions } from '../_components';
+import { CompleteOnboardingButton } from '@/observability/CompleteOnboardingButton';
+import { OnboardingLayout } from '../_components';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -126,9 +127,7 @@ export default async function AccountsPage({
             </Button>
           </Link>
 
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <Button type="button">Finish onboarding</Button>
-          </Link>
+          <CompleteOnboardingButton />
         </div>
       </div>
     </OnboardingLayout>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Badge, Button, Card } from '@dart/ui';
+import { trackEvent } from '@/observability/client';
 
 type ReviewStatus = 'pending' | 'reviewed' | 'needs_attention';
 type Intent =
@@ -84,11 +85,19 @@ export default function TransactionsPage() {
   }
 
   function applyBulkStatus(nextStatus: ReviewStatus) {
+    const changedCount = rows.filter((row) => selectedIds.includes(row.id)).length;
     setRows((current) =>
       current.map((row) =>
         selectedIds.includes(row.id) ? { ...row, reviewStatus: nextStatus } : row,
       ),
     );
+    if (changedCount > 0) {
+      trackEvent('transaction_reviewed', {
+        changedCount,
+        nextStatus,
+        source: 'bulk_review',
+      });
+    }
     setSelectedIds([]);
   }
 
@@ -213,6 +222,12 @@ export default function TransactionsPage() {
                             item.id === row.id ? { ...item, intent: nextIntent } : item,
                           ),
                         );
+                        trackEvent('transaction_reviewed', {
+                          changedCount: 1,
+                          nextIntent,
+                          reviewStatus: row.reviewStatus,
+                          source: 'intent_select',
+                        });
                       }}
                       style={{
                         background: 'var(--color-surface)',

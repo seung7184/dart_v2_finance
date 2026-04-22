@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Card, Badge } from '@dart/ui';
+import { TrackTrustedNumberView } from '@/observability/TrackTrustedNumberView';
 
 const AVAILABLE_CASH_ITEMS = [
   { label: 'ING Checking', value: '€2,640.00', href: '/transactions' },
@@ -47,6 +48,7 @@ function LinkedRow({
 export default function WhyPage() {
   return (
     <div style={{ padding: '32px', display: 'grid', gap: '20px' }}>
+      <TrackTrustedNumberView />
       <Card
         style={{
           display: 'grid',

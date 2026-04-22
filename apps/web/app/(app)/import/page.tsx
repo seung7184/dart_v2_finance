@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { formatEUR } from '@dart/core';
 import { Badge, Button, Card, Input } from '@dart/ui';
+import { trackEvent, trackException, trackFirstSeenEvent } from '@/observability/client';
 
 type SupportedBank = 'ING' | 'T212';
 type PreviewRow = {
@@ -75,6 +76,10 @@ export default function ImportPage() {
       setDuplicateCount(0);
       setErrorCount(0);
       setRowCount(0);
+      trackException(error, {
+        bank,
+        context: 'csv_import_preview',
+      });
       setErrorMessage(error instanceof Error ? error.message : 'Preview failed.');
     } finally {
       setIsPreviewing(false);
@@ -100,6 +105,20 @@ export default function ImportPage() {
 
       setDuplicateCount(returnedDuplicateCount);
       setErrorCount(returnedErrorCount);
+      trackEvent('csv_import_completed', {
+        alreadyImported,
+        bank,
+        duplicateCount: returnedDuplicateCount,
+        errorCount: returnedErrorCount,
+        importedCount,
+        rowCount,
+      });
+      if (!alreadyImported && importedCount > 0) {
+        trackFirstSeenEvent('observability:first_import', 'first_import', {
+          bank,
+          importedCount,
+        });
+      }
       setImportNotice(
         alreadyImported
           ? `File already imported. Reused batch ${String(payload.batchId)}.`
@@ -107,6 +126,10 @@ export default function ImportPage() {
       );
     } catch (error) {
       setImportNotice('');
+      trackException(error, {
+        bank,
+        context: 'csv_import_execute',
+      });
       setErrorMessage(error instanceof Error ? error.message : 'Import failed.');
     } finally {
       setIsImporting(false);
