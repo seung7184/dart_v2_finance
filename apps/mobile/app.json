@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Dart Finance",
+    "slug": "dart-finance",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0f1117"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.dartfinance.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f1117"
+      },
+      "package": "com.dartfinance.app"
+    },
+    "scheme": "dart-finance",
+    "plugins": ["expo-router"]
+  }
+}
