@@ -15,6 +15,13 @@
       "when": 1776870000000,
       "tag": "0001_phase3a_rls_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776873600000,
+      "tag": "0002_beta_signups",
+      "breakpoints": true
     }
   ]
 }

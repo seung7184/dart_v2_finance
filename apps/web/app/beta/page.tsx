@@ -66,9 +66,9 @@ export default function BetaPage() {
           <Badge variant="transfer">Beta ops</Badge>
           <h1 style={{ fontSize: 'var(--text-3xl)' }}>Request beta access</h1>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            This mock flow accepts only the documented V1 account mix: ING plus Trading 212. It
-            gives beta operations a local submission path without assuming email automation or a
-            production CRM.
+            This beta flow accepts only the documented V1 account mix: ING plus Trading 212. It
+            stores accepted requests in the app database so beta operations can review a durable
+            signup queue without adding CRM scope.
           </p>
         </div>
 
@@ -124,13 +124,13 @@ export default function BetaPage() {
           </form>
 
           <p style={{ color: 'var(--color-text-faint)', fontSize: 'var(--text-sm)' }}>
-            This local handler returns a mock ticket only. TODO(owner): connect the accepted ticket
-            flow to the real beta inbox or CRM destination.
+            Accepted requests are stored in the `beta_signups` table. TODO(owner): define how
+            invites are sent after reviewing that queue.
           </p>
 
           {submissionState.status === 'success' ? (
             <p style={{ color: 'var(--color-safe)', fontSize: 'var(--text-sm)' }}>
-              Request accepted. Mock ticket: {submissionState.ticketId}
+              Request accepted. Ticket: {submissionState.ticketId}
             </p>
           ) : null}
 
@@ -146,4 +146,3 @@ export default function BetaPage() {
     </main>
   );
 }
-

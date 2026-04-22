@@ -13,3 +13,4 @@ export * from './budget_periods';
 export * from './sinking_funds';
 export * from './safe_to_spend_snapshots';
 export * from './audit_logs';
+export * from './beta_signups';

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createBetaSignupRepository } from '@/beta/repository';
 import { captureServerException } from '@/observability/server';
 import { submitBetaSignup } from '@/beta/signup';
 
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       email: getStringField(payload.email),
       primaryBank: getStringField(payload.primaryBank),
       reason: getStringField(payload.reason),
-    });
+    }, createBetaSignupRepository());
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
@@ -30,8 +31,12 @@ export async function POST(request: Request) {
     });
 
     const message = error instanceof Error ? error.message : 'UNKNOWN_BETA_SIGNUP_ERROR';
-    const status = message === 'INVALID_BETA_SIGNUP' ? 400 : 500;
+    const status =
+      message === 'INVALID_BETA_SIGNUP'
+        ? 400
+        : message === 'BETA_SIGNUP_DESTINATION_NOT_CONFIGURED'
+          ? 503
+          : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
-

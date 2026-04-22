@@ -64,7 +64,9 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 
 ## 6. Beta Operations Decisions
 
-- [ ] Decide where accepted waitlist tickets are stored after the current mock handler.
+- [ ] Apply the `beta_signups` table migration in the real beta database.
+- [ ] Confirm the deployment has `DATABASE_URL` available for the beta signup API route.
+- [ ] Decide whether beta signups are reviewed in Supabase Table Editor, Drizzle Studio, or another existing DB admin path.
 - [ ] Decide how invites are sent and tracked.
 - [ ] Decide the support SLA or expected response window for beta users.
 - [ ] Decide how “trusted number” feedback is collected and reviewed.
@@ -76,5 +78,5 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 - PostHog and Sentry now have env-aware lightweight bootstrap wiring, but they still need real keys/DSNs and ingest verification.
 - Real Stripe and RevenueCat provider bootstrap work is still missing.
 - Current web billing is mock checkout only.
-- Current beta signup is a mock local handler only.
+- Beta signup now writes to the app database, but the owner still needs the real DB migration applied and an operational review/send-invite workflow.
 - Privacy/terms copy still contains explicit `TODO(owner)` placeholders.

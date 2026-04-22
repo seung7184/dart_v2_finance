@@ -72,7 +72,9 @@ Use this checklist to verify the end-to-end private beta experience across the c
 
 - [ ] Visit `/beta`.
 - [ ] Submit a valid request using `ING` and `Trading 212`.
-- [ ] Confirm the API returns a mock `beta-...` ticket.
+- [ ] Confirm the API returns a durable `beta-...` ticket.
+- [ ] Confirm a row is written to the `beta_signups` table in the target database.
+- [ ] Submit the same email twice and confirm the API returns the existing ticket instead of creating a duplicate signup row.
 - [ ] Submit an invalid request and confirm validation blocks unsupported bank/broker combinations.
 - [ ] Confirm beta signup failures are captured through the observability exception path.
 - [ ] Visit `/privacy` and confirm all unresolved legal details are explicitly marked `TODO(owner)`.
@@ -109,4 +111,4 @@ Launch remains **NO-GO** until these are resolved:
 - [ ] Stripe real checkout flow and webhook handling are implemented.
 - [ ] RevenueCat real SDK configuration and entitlement fetch are implemented.
 - [ ] Owner legal details and contact channels replace all `TODO(owner)` placeholders.
-- [ ] Waitlist submissions are connected to a real operational destination.
+- [ ] The owner invite/review workflow for rows in `beta_signups` is defined and tested.
