@@ -293,6 +293,30 @@ export function buildTestContext(overrides: TestContextOverrides = {}): ComputeC
   // Salary detection — add warning context via transactions
   if (overrides.salaryLandedThisMonth === false) {
     // No salary transaction — keep transactions as-is, engine should detect and warn
+  } else {
+    transactions = [
+      ...transactions,
+      {
+        amount: 3_000_00,
+        intent: 'income_salary',
+        review_status: 'reviewed',
+        occurred_at: new Date(Date.UTC(2026, 3, 1)),
+        account_type: 'checking',
+      },
+    ];
+  }
+
+  if (overrides.anomalyReserve !== undefined && overrides.anomalyReserve > 0) {
+    transactions = [
+      ...transactions,
+      {
+        amount: -overrides.anomalyReserve,
+        intent: 'unclassified',
+        review_status: 'pending',
+        occurred_at: today,
+        account_type: 'checking',
+      },
+    ];
   }
 
   return {

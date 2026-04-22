@@ -1,14 +1,75 @@
+import { computeDedupHash } from '../shared/dedup';
 import type { ParseResult } from '../shared/types';
+import { validateRequiredColumns } from '../shared/validators';
+import { parseDelimitedCsv, splitDelimitedLine } from '../shared/csv';
+import { ingAmountToCents, ingDateToDate } from './mapping';
+import { ING_REQUIRED_COLUMNS } from './types';
 
-/**
- * Parse ING CSV file content into ParsedRow[].
- *
- * STATUS: STUB — not yet implemented.
- * Implementation: read docs/21_Data_Model.md section 5 before implementing.
- */
 export function parseINGCsv(
-  _csvContent: string,
-  _accountId: string,
+  csvContent: string,
+  accountId: string,
 ): ParseResult {
-  throw new Error('Not implemented: ING CSV parser');
+  const [headerLine = ''] = csvContent
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const headers = splitDelimitedLine(headerLine, ';');
+
+  validateRequiredColumns(headers, ING_REQUIRED_COLUMNS, 'ING');
+
+  const rawRows = parseDelimitedCsv(csvContent, ';');
+  const rows: ParseResult['rows'] = [];
+  const errors: ParseResult['errors'] = [];
+  const seenDedupHashes = new Set<string>();
+  let duplicateCount = 0;
+
+  rawRows.forEach((rawRow, index) => {
+    try {
+      const occurredAt = ingDateToDate(rawRow['Datum'] ?? '');
+      const amountCents = ingAmountToCents({
+        Datum: rawRow['Datum'] ?? '',
+        'Naam / Omschrijving': rawRow['Naam / Omschrijving'] ?? '',
+        Rekening: rawRow['Rekening'] ?? '',
+        Tegenrekening: rawRow['Tegenrekening'] ?? '',
+        Code: rawRow['Code'] ?? '',
+        'Af Bij': (rawRow['Af Bij'] ?? 'Bij') as 'Af' | 'Bij',
+        'Bedrag (EUR)': rawRow['Bedrag (EUR)'] ?? '',
+        Mutatiesoort: rawRow['Mutatiesoort'] ?? '',
+        Mededelingen: rawRow['Mededelingen'] ?? '',
+      });
+      const rawDescription = rawRow['Naam / Omschrijving'] ?? '';
+      const dedupHash = computeDedupHash({
+        account_id: accountId,
+        occurred_at: occurredAt,
+        amount_cents: amountCents,
+        raw_description: rawDescription,
+      });
+
+      if (seenDedupHashes.has(dedupHash)) {
+        duplicateCount += 1;
+        return;
+      }
+
+      seenDedupHashes.add(dedupHash);
+      rows.push({
+        external_id: null,
+        occurred_at: occurredAt,
+        amount_cents: amountCents,
+        currency: 'EUR',
+        raw_description: rawDescription,
+        source: 'ing_csv',
+        intent_hint: null,
+        dedup_hash: dedupHash,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown ING parse error';
+      errors.push({ row_index: index + 2, error: message });
+    }
+  });
+
+  return {
+    rows,
+    errors,
+    duplicate_count: duplicateCount,
+  };
 }

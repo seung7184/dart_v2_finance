@@ -27,4 +27,6 @@ export const T212_ACTION_INTENT_MAP: Record<string, string> = {
   'Market buy': 'investment_buy',
   'Market sell': 'investment_sell',
   Dividend: 'income_dividend',
+  'Dividend (Ordinary)': 'income_dividend',
+  'Interest on cash': 'income_other',
 };

@@ -5,9 +5,16 @@ import { T212_ACTION_INTENT_MAP } from './types';
  * T212 uses dot as decimal separator. Withdrawals are negative.
  */
 export function t212AmountToCents(total: string, action: string): number {
-  const abs = Math.round(parseFloat(total) * 100);
-  const isOutflow = action === 'Withdrawal';
-  return isOutflow ? -Math.abs(abs) : Math.abs(abs);
+  const parsed = Math.round(Number.parseFloat(total.replace(/,/g, '')) * 100);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`Invalid T212 total: ${total}`);
+  }
+
+  if (total.trim().startsWith('-') || total.trim().startsWith('+')) {
+    return parsed;
+  }
+
+  return action === 'Withdrawal' ? -Math.abs(parsed) : Math.abs(parsed);
 }
 
 /**
