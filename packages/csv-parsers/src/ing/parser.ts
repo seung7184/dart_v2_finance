@@ -19,6 +19,7 @@ export function parseINGCsv(
 
   const rawRows = parseDelimitedCsv(csvContent, ';');
   const rows: ParseResult['rows'] = [];
+  const duplicates: ParseResult['duplicates'] = [];
   const errors: ParseResult['errors'] = [];
   const seenDedupHashes = new Set<string>();
   let duplicateCount = 0;
@@ -47,11 +48,18 @@ export function parseINGCsv(
 
       if (seenDedupHashes.has(dedupHash)) {
         duplicateCount += 1;
+        duplicates.push({
+          row_index: index + 2,
+          raw_data: rawRow,
+          reason: 'duplicate_in_file',
+        });
         return;
       }
 
       seenDedupHashes.add(dedupHash);
       rows.push({
+        row_index: index + 2,
+        raw_data: rawRow,
         external_id: null,
         occurred_at: occurredAt,
         amount_cents: amountCents,
@@ -63,12 +71,13 @@ export function parseINGCsv(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown ING parse error';
-      errors.push({ row_index: index + 2, error: message });
+      errors.push({ row_index: index + 2, error: message, raw_data: rawRow });
     }
   });
 
   return {
     rows,
+    duplicates,
     errors,
     duplicate_count: duplicateCount,
   };

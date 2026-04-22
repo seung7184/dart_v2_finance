@@ -1,0 +1,69 @@
+import { NextResponse } from 'next/server';
+import { createImportRepository } from '@/imports/repository';
+import {
+  executeImport,
+  getImportPreview,
+  isSupportedBank,
+} from '@/imports/service';
+
+function getStringField(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export async function POST(request: Request) {
+  try {
+    const formData = await request.formData();
+    const mode = getStringField(formData, 'mode');
+    const bank = getStringField(formData, 'bank');
+    const accountId = getStringField(formData, 'accountId');
+    const file = formData.get('file');
+
+    if (!isSupportedBank(bank)) {
+      return NextResponse.json({ error: 'Unsupported bank selection.' }, { status: 400 });
+    }
+
+    if (accountId.length === 0) {
+      return NextResponse.json({ error: 'Account ID is required.' }, { status: 400 });
+    }
+
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: 'CSV file is required.' }, { status: 400 });
+    }
+
+    const csvContent = await file.text();
+    if (csvContent.trim().length === 0) {
+      return NextResponse.json({ error: 'CSV file is empty.' }, { status: 400 });
+    }
+
+    if (mode === 'preview') {
+      const preview = getImportPreview({
+        accountId,
+        bank,
+        csvContent,
+      });
+
+      return NextResponse.json(preview);
+    }
+
+    if (mode === 'import') {
+      const result = await executeImport(
+        {
+          accountId,
+          bank,
+          csvContent,
+          originalFilename: file.name,
+        },
+        createImportRepository(),
+      );
+
+      return NextResponse.json(result);
+    }
+
+    return NextResponse.json({ error: 'Invalid import mode.' }, { status: 400 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown import error';
+    const status = message === 'ACCOUNT_NOT_FOUND' ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}

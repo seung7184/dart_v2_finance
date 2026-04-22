@@ -18,6 +18,7 @@ export function parseT212Csv(
 
   const rawRows = parseDelimitedCsv(csvContent, ',');
   const rows: ParseResult['rows'] = [];
+  const duplicates: ParseResult['duplicates'] = [];
   const errors: ParseResult['errors'] = [];
   const seenExternalIds = new Set<string>();
   let duplicateCount = 0;
@@ -36,11 +37,18 @@ export function parseT212Csv(
 
       if (seenExternalIds.has(externalId)) {
         duplicateCount += 1;
+        duplicates.push({
+          row_index: index + 2,
+          raw_data: rawRow,
+          reason: 'duplicate_in_file',
+        });
         return;
       }
 
       seenExternalIds.add(externalId);
       rows.push({
+        row_index: index + 2,
+        raw_data: rawRow,
         external_id: externalId,
         occurred_at: occurredAt,
         amount_cents: t212AmountToCents(rawRow['Total'] ?? '', rawRow['Action'] ?? ''),
@@ -53,12 +61,13 @@ export function parseT212Csv(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown T212 parse error';
-      errors.push({ row_index: index + 2, error: message });
+      errors.push({ row_index: index + 2, error: message, raw_data: rawRow });
     }
   });
 
   return {
     rows,
+    duplicates,
     errors,
     duplicate_count: duplicateCount,
   };

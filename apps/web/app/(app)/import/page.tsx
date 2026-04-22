@@ -1,14 +1,14 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Badge, Button, Card } from '@dart/ui';
+import { formatEUR } from '@dart/core';
+import { Badge, Button, Card, Input } from '@dart/ui';
 
 type SupportedBank = 'ING' | 'T212';
-
 type PreviewRow = {
+  amountCents: number;
   date: string;
   description: string;
-  amount: string;
   externalId: string;
 };
 
@@ -17,107 +17,100 @@ const REQUIRED_FIELDS: Record<SupportedBank, string[]> = {
   T212: ['Action', 'Time', 'Total', 'ID'],
 };
 
-function splitCsvLine(line: string, delimiter: string): string[] {
-  const values: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const next = line[index + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        index += 1;
-        continue;
-      }
-
-      inQuotes = !inQuotes;
-      continue;
-    }
-
-    if (char === delimiter && !inQuotes) {
-      values.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  values.push(current.trim());
-  return values;
-}
-
-function parsePreview(
-  bank: SupportedBank,
-  text: string,
-): {
-  headers: string[];
-  previewRows: PreviewRow[];
-  duplicateCount: number;
-} {
-  const delimiter = bank === 'ING' ? ';' : ',';
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  if (lines.length === 0) {
-    return { headers: [], previewRows: [], duplicateCount: 0 };
-  }
-
-  const headers = splitCsvLine(lines[0] ?? '', delimiter);
-  const dataLines = lines.slice(1);
-  const seen = new Set<string>();
-  let duplicateCount = 0;
-
-  const previewRows = dataLines.slice(0, 5).map((line) => {
-    const values = splitCsvLine(line, delimiter);
-    const row = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']));
-
-    const date = bank === 'ING' ? row['Datum'] ?? '' : row['Time'] ?? '';
-    const description =
-      bank === 'ING'
-        ? row['Naam / Omschrijving'] ?? ''
-        : row['Name'] || row['Ticker'] || row['Action'] || '';
-    const amount = bank === 'ING' ? row['Bedrag (EUR)'] ?? '' : row['Total'] ?? '';
-    const externalId = bank === 'ING' ? '' : row['ID'] ?? '';
-    const dedupKey =
-      bank === 'ING'
-        ? `${date}|${amount}|${description}`
-        : `${row['ID'] ?? ''}|${row['Time'] ?? ''}|${amount}`;
-
-    if (seen.has(dedupKey)) {
-      duplicateCount += 1;
-    } else {
-      seen.add(dedupKey);
-    }
-
-    return { date, description, amount, externalId };
-  });
-
-  return { headers, previewRows, duplicateCount };
-}
-
 export default function ImportPage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [bank, setBank] = useState<SupportedBank>('ING');
-  const [headers, setHeaders] = useState<string[]>([]);
+  const [accountId, setAccountId] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0);
+  const [rowCount, setRowCount] = useState(0);
   const [fileName, setFileName] = useState('No file selected');
   const [importNotice, setImportNotice] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
-  async function handleFile(file: File) {
-    const text = await file.text();
-    const parsed = parsePreview(bank, text);
-    setHeaders(parsed.headers);
-    setPreviewRows(parsed.previewRows);
-    setDuplicateCount(parsed.duplicateCount);
-    setFileName(file.name);
+  async function postImport(mode: 'preview' | 'import', file: File) {
+    const formData = new FormData();
+    formData.append('accountId', accountId);
+    formData.append('bank', bank);
+    formData.append('file', file);
+    formData.append('mode', mode);
+
+    const response = await fetch('/api/import', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    if (!response.ok) {
+      throw new Error(typeof payload.error === 'string' ? payload.error : 'Import request failed.');
+    }
+
+    return payload;
+  }
+
+  async function handlePreview(file: File) {
+    if (accountId.trim().length === 0) {
+      setErrorMessage('Account ID is required before previewing a CSV.');
+      return;
+    }
+
+    setIsPreviewing(true);
+    setErrorMessage('');
     setImportNotice('');
+
+    try {
+      const payload = await postImport('preview', file);
+      setSelectedFile(file);
+      setPreviewRows((payload.previewRows as PreviewRow[]) ?? []);
+      setDuplicateCount(typeof payload.duplicateCount === 'number' ? payload.duplicateCount : 0);
+      setErrorCount(typeof payload.errorCount === 'number' ? payload.errorCount : 0);
+      setRowCount(typeof payload.rowCount === 'number' ? payload.rowCount : 0);
+      setFileName(file.name);
+    } catch (error) {
+      setPreviewRows([]);
+      setDuplicateCount(0);
+      setErrorCount(0);
+      setRowCount(0);
+      setErrorMessage(error instanceof Error ? error.message : 'Preview failed.');
+    } finally {
+      setIsPreviewing(false);
+    }
+  }
+
+  async function handleImport() {
+    if (!selectedFile) {
+      setErrorMessage('Upload and preview a CSV before running the import.');
+      return;
+    }
+
+    setIsImporting(true);
+    setErrorMessage('');
+
+    try {
+      const payload = await postImport('import', selectedFile);
+      const importedCount = typeof payload.importedCount === 'number' ? payload.importedCount : 0;
+      const returnedDuplicateCount =
+        typeof payload.duplicateCount === 'number' ? payload.duplicateCount : 0;
+      const returnedErrorCount = typeof payload.errorCount === 'number' ? payload.errorCount : 0;
+      const alreadyImported = payload.alreadyImported === true;
+
+      setDuplicateCount(returnedDuplicateCount);
+      setErrorCount(returnedErrorCount);
+      setImportNotice(
+        alreadyImported
+          ? `File already imported. Reused batch ${String(payload.batchId)}.`
+          : `Imported ${importedCount} transactions. ${returnedDuplicateCount} duplicates skipped. ${returnedErrorCount} rows failed validation.`,
+      );
+    } catch (error) {
+      setImportNotice('');
+      setErrorMessage(error instanceof Error ? error.message : 'Import failed.');
+    } finally {
+      setIsImporting(false);
+    }
   }
 
   return (
@@ -159,13 +152,21 @@ export default function ImportPage() {
           ))}
         </div>
 
+        <Input
+          label="Target account UUID"
+          placeholder="Enter the existing account ID to import into"
+          value={accountId}
+          onChange={(event) => setAccountId(event.target.value)}
+          {...(errorMessage.includes('Account ID') ? { error: errorMessage } : {})}
+        />
+
         <div
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
             event.preventDefault();
             const file = event.dataTransfer.files[0];
             if (file) {
-              void handleFile(file);
+              void handlePreview(file);
             }
           }}
           style={{
@@ -190,16 +191,16 @@ export default function ImportPage() {
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
-                void handleFile(file);
+                void handlePreview(file);
               }
             }}
             style={{ display: 'none' }}
           />
-          <Button type="button" onClick={() => inputRef.current?.click()}>
+          <Button type="button" onClick={() => inputRef.current?.click()} disabled={isPreviewing}>
             Choose file
           </Button>
           <p style={{ color: 'var(--color-text-faint)', fontSize: 'var(--text-sm)' }}>
-            {fileName}
+            {isPreviewing ? 'Parsing preview…' : fileName}
           </p>
         </div>
 
@@ -219,13 +220,12 @@ export default function ImportPage() {
             </div>
 
             {REQUIRED_FIELDS[bank].map((field) => (
-              <label
+              <div
                 key={field}
                 style={{ display: 'grid', gap: '6px', color: 'var(--color-text-muted)' }}
               >
                 <span>{field}</span>
-                <select
-                  defaultValue={headers.includes(field) ? field : headers[0] ?? ''}
+                <div
                   style={{
                     background: 'var(--color-surface)',
                     color: 'var(--color-text)',
@@ -234,17 +234,9 @@ export default function ImportPage() {
                     padding: '10px 12px',
                   }}
                 >
-                  {headers.length === 0 ? (
-                    <option value="">Upload a file first</option>
-                  ) : (
-                    headers.map((header) => (
-                      <option key={header} value={header}>
-                        {header}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
+                  {selectedFile ? 'Detected via shared parser' : 'Upload a file first'}
+                </div>
+              </div>
             ))}
           </Card>
 
@@ -289,7 +281,7 @@ export default function ImportPage() {
                           {row.description}
                         </td>
                         <td style={{ padding: '10px', borderBottom: '1px solid var(--color-border)' }}>
-                          {row.amount}
+                          {formatEUR(row.amountCents)}
                         </td>
                         <td style={{ padding: '10px', borderBottom: '1px solid var(--color-border)' }}>
                           {row.externalId || 'Fallback hash'}
@@ -316,25 +308,27 @@ export default function ImportPage() {
             <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
               Step 4
             </p>
+            <p>{rowCount} CSV rows processed in preview.</p>
             <p>N duplicates skipped: {duplicateCount}</p>
+            <p>N validation errors: {errorCount}</p>
             {importNotice ? (
               <p style={{ color: 'var(--color-safe)', fontSize: 'var(--text-sm)' }}>
                 {importNotice}
+              </p>
+            ) : null}
+            {errorMessage && !errorMessage.includes('Account ID') ? (
+              <p style={{ color: 'var(--color-warning)', fontSize: 'var(--text-sm)' }}>
+                {errorMessage}
               </p>
             ) : null}
           </div>
 
           <Button
             type="button"
-            onClick={() => {
-              setImportNotice(
-                previewRows.length === 0
-                  ? 'Upload a CSV before running the import.'
-                  : `Imported ${previewRows.length} preview rows. ${duplicateCount} duplicates skipped.`,
-              );
-            }}
+            disabled={isImporting}
+            onClick={() => void handleImport()}
           >
-            Execute import
+            {isImporting ? 'Executing import…' : 'Execute import'}
           </Button>
         </div>
       </Card>

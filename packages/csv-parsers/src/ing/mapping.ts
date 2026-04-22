@@ -1,12 +1,18 @@
 import type { INGRawRow } from './types';
+import { decimalStringToCents } from '../shared/money';
 
 /**
  * Convert ING Bedrag (EUR) string to signed cents.
  * ING uses comma as decimal separator. 'Af' = outflow (negative), 'Bij' = inflow (positive).
  */
 export function ingAmountToCents(row: INGRawRow): number {
-  const normalized = row['Bedrag (EUR)'].replace('.', '').replace(',', '.');
-  const abs = Math.round(parseFloat(normalized) * 100);
+  const abs = Math.abs(
+    decimalStringToCents(row['Bedrag (EUR)'], {
+      decimalSeparator: ',',
+      thousandsSeparator: '.',
+      errorPrefix: 'Invalid ING amount',
+    }),
+  );
   return row['Af Bij'] === 'Af' ? -abs : abs;
 }
 
