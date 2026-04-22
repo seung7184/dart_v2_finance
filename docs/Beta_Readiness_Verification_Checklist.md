@@ -24,9 +24,9 @@ Use this checklist to verify the end-to-end private beta experience across the c
 
 ### Billing
 
-- Current state: web billing uses a mock Stripe checkout route.
+- Current state: web billing can create a live Stripe Checkout session when the selected plan price ID and server secret key are configured.
 - Current state: mobile billing exposes RevenueCat offering/entitlement readiness only.
-- Blocker: real Stripe checkout/webhooks and real RevenueCat SDK wiring are not present.
+- Blocker: Stripe webhook handling and real RevenueCat SDK wiring are not present.
 
 ## 2. Core Web Flow Verification
 
@@ -86,7 +86,10 @@ Use this checklist to verify the end-to-end private beta experience across the c
 
 - [ ] Visit `/billing`.
 - [ ] Confirm Stripe public key status reflects env presence.
-- [ ] Submit a valid billing email and confirm the mock checkout payload is returned.
+- [ ] Confirm monthly checkout is unavailable when `NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY` is absent.
+- [ ] Confirm annual checkout is unavailable when `NEXT_PUBLIC_STRIPE_PRICE_ID_ANNUAL` is absent.
+- [ ] Submit a valid billing email for a configured plan and confirm a Stripe Checkout URL/session is returned.
+- [ ] Submit a valid billing email for an unconfigured plan and confirm the request fails safely.
 - [ ] Submit an invalid billing email and confirm validation blocks the request.
 
 ### Mobile
@@ -108,7 +111,7 @@ Launch remains **NO-GO** until these are resolved:
 - [ ] Real Supabase auth env values and callback registration are configured in the target environment.
 - [ ] PostHog ingest is verified with the chosen beta bootstrap approach.
 - [ ] Sentry ingest is verified with the chosen beta bootstrap approach.
-- [ ] Stripe real checkout flow and webhook handling are implemented.
+- [ ] Stripe live keys, both price IDs, webhook registration, and post-checkout subscription handling are implemented.
 - [ ] RevenueCat real SDK configuration and entitlement fetch are implemented.
 - [ ] Owner legal details and contact channels replace all `TODO(owner)` placeholders.
 - [ ] The owner invite/review workflow for rows in `beta_signups` is defined and tested.

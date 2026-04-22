@@ -54,9 +54,13 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 ## 5. Billing Provider Inputs
 
 - [ ] Provide `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
-- [ ] Define the real Stripe product and price IDs for the beta paid plan.
-- [ ] Decide whether the beta uses monthly only or both monthly and annual pricing.
-- [ ] Implement real checkout session creation and webhook handling before enabling payment.
+- [ ] Provide `NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY`.
+- [ ] Provide `NEXT_PUBLIC_STRIPE_PRICE_ID_ANNUAL`.
+- [ ] Provide `STRIPE_SECRET_KEY`.
+- [ ] Provide `STRIPE_WEBHOOK_SECRET`.
+- [ ] Define the real Stripe product and price IDs for both beta billing cadences.
+- [ ] Register the Stripe webhook endpoint for checkout/subscription events in the target environment.
+- [ ] Verify that monthly and annual plans each stay hidden or unavailable when their own price IDs are absent.
 - [ ] Provide `EXPO_PUBLIC_REVENUECAT_APPLE_PUBLIC_KEY`.
 - [ ] Confirm the final RevenueCat offering identifier.
 - [ ] Confirm the final RevenueCat entitlement identifier.
@@ -76,7 +80,7 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 
 - Supabase auth is now wired to a real callback/token path, but it still needs a real project, env values, and redirect URL registration.
 - PostHog and Sentry now have env-aware lightweight bootstrap wiring, but they still need real keys/DSNs and ingest verification.
-- Real Stripe and RevenueCat provider bootstrap work is still missing.
-- Current web billing is mock checkout only.
+- Stripe checkout now has a live-ready session creation path, but it still needs real keys, both price IDs, webhook registration, and downstream subscription handling.
+- RevenueCat provider bootstrap work is still missing.
 - Beta signup now writes to the app database, but the owner still needs the real DB migration applied and an operational review/send-invite workflow.
 - Privacy/terms copy still contains explicit `TODO(owner)` placeholders.

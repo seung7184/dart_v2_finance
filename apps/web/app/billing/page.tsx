@@ -2,23 +2,31 @@
 
 import { useState } from 'react';
 import { Badge, Button, Card, Input } from '@dart/ui';
+import type { StripePlanInterval } from '@/billing/stripe';
 import { trackEvent, trackException } from '@/observability/client';
 
 type CheckoutState =
   | { status: 'idle' }
-  | { status: 'success'; planLabel: string; priceLabel: string }
+  | { status: 'redirecting'; planLabel: string }
   | { status: 'error'; message: string };
 
 function providerValue(value: string | undefined) {
-  return value?.trim() ? 'Configured in environment' : 'Missing public key';
+  return value?.trim() ? 'Configured in environment' : 'Unavailable';
+}
+
+function planValue(value: string | undefined) {
+  return value?.trim() ? 'Plan is available' : 'Plan is not live yet';
 }
 
 export default function BillingPage() {
   const [email, setEmail] = useState('');
   const [checkoutState, setCheckoutState] = useState<CheckoutState>({ status: 'idle' });
   const [isLoading, setIsLoading] = useState(false);
+  const publicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  const monthlyPriceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY;
+  const annualPriceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_ANNUAL;
 
-  async function handleMockCheckout() {
+  async function handleCheckout(interval: StripePlanInterval) {
     setIsLoading(true);
     setCheckoutState({ status: 'idle' });
 
@@ -28,7 +36,7 @@ export default function BillingPage() {
         headers: {
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, interval }),
       });
 
       const payload = (await response.json()) as Record<string, unknown>;
@@ -38,19 +46,30 @@ export default function BillingPage() {
         );
       }
 
+      const checkoutUrl =
+        typeof payload.checkoutUrl === 'string' ? payload.checkoutUrl : 'https://checkout.stripe.com';
+      const planLabel =
+        typeof payload.planLabel === 'string'
+          ? payload.planLabel
+          : interval === 'monthly'
+            ? 'Dart Finance Beta Monthly'
+            : 'Dart Finance Beta Annual';
+
       trackEvent('onboarding_completed', {
-        source: 'billing_mock_checkout',
+        source: 'billing_live_checkout',
+        interval,
       });
       setCheckoutState({
-        status: 'success',
-        planLabel:
-          typeof payload.planLabel === 'string' ? payload.planLabel : 'Dart Finance Beta',
-        priceLabel: typeof payload.priceLabel === 'string' ? payload.priceLabel : 'EUR 7 / month',
+        status: 'redirecting',
+        planLabel,
       });
+
+      window.location.assign(checkoutUrl);
     } catch (error) {
       trackException(error, {
         context: 'billing_page',
         provider: 'stripe',
+        interval,
       });
       setCheckoutState({
         status: 'error',
@@ -77,7 +96,13 @@ export default function BillingPage() {
         <Card style={{ display: 'grid', gap: '12px' }}>
           <h2 style={{ fontSize: 'var(--text-xl)' }}>Stripe</h2>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            Publishable key status: {providerValue(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)}
+            Publishable key status: {providerValue(publicKey)}
+          </p>
+          <p style={{ color: 'var(--color-text-muted)' }}>
+            Monthly plan status: {planValue(monthlyPriceId)}
+          </p>
+          <p style={{ color: 'var(--color-text-muted)' }}>
+            Annual plan status: {planValue(annualPriceId)}
           </p>
           <Input
             label="Billing email"
@@ -85,22 +110,46 @@ export default function BillingPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
-          <Button type="button" onClick={() => void handleMockCheckout()} disabled={isLoading}>
-            {isLoading ? 'Preparing checkout…' : 'Start mock Stripe checkout'}
-          </Button>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <Button
+              type="button"
+              onClick={() => void handleCheckout('monthly')}
+              disabled={isLoading || !monthlyPriceId}
+            >
+              {isLoading ? 'Preparing checkout…' : 'Start monthly checkout'}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleCheckout('annual')}
+              disabled={isLoading || !annualPriceId}
+            >
+              {isLoading ? 'Preparing checkout…' : 'Start annual checkout'}
+            </Button>
+          </div>
           <p style={{ color: 'var(--color-text-faint)', fontSize: 'var(--text-sm)' }}>
-            This route returns a mock checkout payload only. TODO(owner): attach real checkout
-            session creation once Stripe products and webhook handling are defined.
+            The page only exposes plans whose public price IDs are configured. Hosted checkout also
+            requires server-side `STRIPE_SECRET_KEY` plus webhook handling before billing is fully
+            operational.
           </p>
-          {checkoutState.status === 'success' ? (
+          <p style={{ color: 'var(--color-text-faint)', fontSize: 'var(--text-sm)' }}>
+            TODO(owner): add the real webhook endpoint, set `STRIPE_WEBHOOK_SECRET`, and connect
+            post-checkout subscription activation before charging external beta users.
+          </p>
+          {checkoutState.status === 'redirecting' ? (
             <p style={{ color: 'var(--color-safe)', fontSize: 'var(--text-sm)' }}>
-              Mock checkout ready for {checkoutState.planLabel} at {checkoutState.priceLabel}.
+              Redirecting to Stripe Checkout for {checkoutState.planLabel}.
             </p>
           ) : null}
           {checkoutState.status === 'error' ? (
             <p style={{ color: 'var(--color-warning)', fontSize: 'var(--text-sm)' }}>
               {checkoutState.message === 'INVALID_BILLING_EMAIL'
-                ? 'Enter a valid email before starting mock checkout.'
+                ? 'Enter a valid email before starting checkout.'
+                : checkoutState.message === 'INVALID_BILLING_INTERVAL'
+                  ? 'Select a valid billing interval.'
+                  : checkoutState.message === 'STRIPE_PRICE_NOT_CONFIGURED'
+                    ? 'That billing plan is not live yet.'
+                    : checkoutState.message === 'STRIPE_CHECKOUT_NOT_CONFIGURED'
+                      ? 'Stripe checkout is not fully configured on the server yet.'
                 : checkoutState.message}
             </p>
           ) : null}
@@ -121,4 +170,3 @@ export default function BillingPage() {
     </main>
   );
 }
-
