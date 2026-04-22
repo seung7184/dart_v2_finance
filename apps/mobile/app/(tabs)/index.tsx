@@ -3,6 +3,7 @@ import { SafeAreaView, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 
 import { formatEUR } from '@dart/core';
 
+import { getRevenueCatBillingState } from '@/src/billing/revenuecat';
 import { mobileColors, mobileRadius } from '@/src/theme';
 
 export default function HomeScreen() {
@@ -10,6 +11,7 @@ export default function HomeScreen() {
     { name: 'Rent', dueLabel: 'Due Apr 25', amountCents: 85000 },
     { name: 'Spotify', dueLabel: 'Due Apr 23', amountCents: 1199 },
   ];
+  const billingState = getRevenueCatBillingState(process.env);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -60,6 +62,25 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.cardValue}>{formatEUR(80000)}</Text>
           <Text style={styles.cardMeta}>VWCE + SXR8 target on Apr 28</Text>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Mobile billing</Text>
+            <View style={styles.protectedBadge}>
+              <Text style={styles.protectedBadgeText}>
+                {billingState.status === 'configured' ? 'Ready' : 'Pending key'}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.listTitle}>RevenueCat paywall wiring</Text>
+          <Text style={styles.cardMeta}>
+            Offering: {billingState.offering} · Entitlement: {billingState.entitlement}
+          </Text>
+          <Text style={styles.cardMeta}>
+            TODO(owner): set EXPO_PUBLIC_REVENUECAT_APPLE_PUBLIC_KEY before installing the live
+            SDK and entitlement fetch.
+          </Text>
         </View>
       </ScrollView>
 
