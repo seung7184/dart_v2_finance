@@ -15,7 +15,7 @@ function getStringField(formData: FormData, key: string): string {
 
 export async function POST(request: Request) {
   try {
-    const authenticatedUserId = getAuthenticatedUserIdFromCookieHeader(
+    const authenticatedUserId = await getAuthenticatedUserIdFromCookieHeader(
       request.headers.get('cookie'),
     );
 

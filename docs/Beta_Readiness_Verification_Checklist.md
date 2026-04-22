@@ -12,8 +12,9 @@ Use this checklist to verify the end-to-end private beta experience across the c
 
 ### Auth
 
-- Current state: app routes require the `dart_auth_uid` cookie via `apps/web/src/auth/session.ts`.
-- Blocker: real Supabase session issuance/callback wiring is not present yet.
+- Current state: app routes require valid Supabase access/refresh token cookies and resolve the user through the Supabase Auth `/user` endpoint.
+- Current state: web auth start uses a Supabase-compatible magic link request and `/auth/callback` token handoff.
+- Blocker: a real Supabase project, anon key, and registered callback URL are still required.
 
 ### Observability
 
@@ -95,11 +96,10 @@ Use this checklist to verify the end-to-end private beta experience across the c
 
 Launch remains **NO-GO** until these are resolved:
 
-- [ ] Real Supabase auth session flow replaces the temporary cookie contract.
+- [ ] Real Supabase auth env values and callback registration are configured in the target environment.
 - [ ] PostHog SDK bootstrap is installed and verified.
 - [ ] Sentry SDK bootstrap is installed and verified.
 - [ ] Stripe real checkout flow and webhook handling are implemented.
 - [ ] RevenueCat real SDK configuration and entitlement fetch are implemented.
 - [ ] Owner legal details and contact channels replace all `TODO(owner)` placeholders.
 - [ ] Waitlist submissions are connected to a real operational destination.
-

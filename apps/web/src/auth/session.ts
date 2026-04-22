@@ -1,7 +1,23 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import {
+  SUPABASE_ACCESS_TOKEN_COOKIE,
+  SUPABASE_REFRESH_TOKEN_COOKIE,
+} from './constants';
 
-export const AUTH_COOKIE_NAME = 'dart_auth_uid';
+type CookieSession = {
+  accessToken: string;
+  refreshToken: string;
+};
+
+type SupabaseAuthConfig = {
+  anonKey: string;
+  authUrl: string;
+};
+
+type SupabaseUser = {
+  id: string;
+};
 
 function parseCookieHeader(cookieHeader: string): Map<string, string> {
   return cookieHeader
@@ -17,22 +33,98 @@ function parseCookieHeader(cookieHeader: string): Map<string, string> {
     }, new Map<string, string>());
 }
 
-export function getAuthenticatedUserIdFromCookieHeader(cookieHeader: string | null): string | null {
+function cleanToken(value: string | undefined) {
+  const token = value?.trim();
+  return token && token.length > 0 ? token : null;
+}
+
+export function getSupabaseSessionFromCookieHeader(cookieHeader: string | null): CookieSession | null {
   if (!cookieHeader) {
     return null;
   }
 
   const parsedCookies = parseCookieHeader(cookieHeader);
-  const candidate = parsedCookies.get(AUTH_COOKIE_NAME)?.trim();
+  const accessToken = cleanToken(parsedCookies.get(SUPABASE_ACCESS_TOKEN_COOKIE));
+  const refreshToken = cleanToken(parsedCookies.get(SUPABASE_REFRESH_TOKEN_COOKIE));
 
-  return candidate ? candidate : null;
+  if (!accessToken || !refreshToken) {
+    return null;
+  }
+
+  return {
+    accessToken,
+    refreshToken,
+  };
 }
 
-export async function getAuthenticatedUserIdFromRequestCookies(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const cookieValue = cookieStore.get(AUTH_COOKIE_NAME)?.value?.trim();
+export function getSupabaseAuthConfig(
+  env: Record<string, string | undefined>,
+): SupabaseAuthConfig | null {
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
-  return cookieValue ? cookieValue : null;
+  if (!supabaseUrl || !anonKey) {
+    return null;
+  }
+
+  return {
+    anonKey,
+    authUrl: `${supabaseUrl.replace(/\/$/, '')}/auth/v1`,
+  };
+}
+
+export async function fetchSupabaseUser(
+  accessToken: string,
+  config: SupabaseAuthConfig,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SupabaseUser | null> {
+  const response = await fetchImpl(`${config.authUrl}/user`, {
+    method: 'GET',
+    headers: {
+      apikey: config.anonKey,
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as Record<string, unknown>;
+  const userId = typeof payload.id === 'string' ? payload.id : null;
+
+  return userId ? { id: userId } : null;
+}
+
+export async function getAuthenticatedUserIdFromCookieHeader(
+  cookieHeader: string | null,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  const session = getSupabaseSessionFromCookieHeader(cookieHeader);
+  const config = getSupabaseAuthConfig(process.env);
+
+  if (!session || !config) {
+    return null;
+  }
+
+  const user = await fetchSupabaseUser(session.accessToken, config, fetchImpl);
+  return user?.id ?? null;
+}
+
+export async function getAuthenticatedUserIdFromRequestCookies(
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  const cookieStore = await cookies();
+  const accessToken = cleanToken(cookieStore.get(SUPABASE_ACCESS_TOKEN_COOKIE)?.value);
+  const refreshToken = cleanToken(cookieStore.get(SUPABASE_REFRESH_TOKEN_COOKIE)?.value);
+  const config = getSupabaseAuthConfig(process.env);
+
+  if (!accessToken || !refreshToken || !config) {
+    return null;
+  }
+
+  const user = await fetchSupabaseUser(accessToken, config, fetchImpl);
+  return user?.id ?? null;
 }
 
 export async function requireAuthenticatedAppUser(): Promise<string> {
@@ -44,4 +136,3 @@ export async function requireAuthenticatedAppUser(): Promise<string> {
 
   return userId;
 }
-

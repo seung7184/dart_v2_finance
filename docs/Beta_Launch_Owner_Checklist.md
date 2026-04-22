@@ -35,7 +35,8 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 - [ ] Confirm the real Supabase project to use for beta auth.
 - [ ] Provide the Supabase URL and anon key through the approved env path.
 - [ ] Confirm the production callback / redirect URLs.
-- [ ] Replace the temporary `dart_auth_uid` cookie contract with the real Supabase session flow.
+- [ ] Register `/auth/callback` as the web auth redirect URL in Supabase.
+- [ ] Verify the web app receives real Supabase access/refresh tokens after callback.
 - [ ] Verify that the users table is created/managed from real Supabase Auth identities.
 - [ ] Verify RLS policy rollout against the real beta database, not only migration scaffolds.
 
@@ -69,8 +70,8 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 
 ## Current Blocking Summary
 
-- Real provider SDK bootstrap is still missing for Supabase auth, PostHog, Sentry, Stripe, and RevenueCat.
+- Supabase auth is now wired to a real callback/token path, but it still needs a real project, env values, and redirect URL registration.
+- Real provider SDK bootstrap is still missing for PostHog, Sentry, Stripe, and RevenueCat.
 - Current web billing is mock checkout only.
 - Current beta signup is a mock local handler only.
 - Privacy/terms copy still contains explicit `TODO(owner)` placeholders.
-
