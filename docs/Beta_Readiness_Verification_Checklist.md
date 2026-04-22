@@ -18,9 +18,9 @@ Use this checklist to verify the end-to-end private beta experience across the c
 
 ### Observability
 
-- Current state: client events call `window.posthog.capture` when available.
-- Current state: client/server exceptions call `window.Sentry.captureException` or `globalThis.Sentry.captureException` when available.
-- Blocker: actual PostHog and Sentry SDK bootstrap is not present in the app shell.
+- Current state: the app shell installs lightweight env-aware `window.posthog.capture` and `window.Sentry.captureException` shims when public keys/DSNs exist.
+- Current state: server exceptions fall back to direct Sentry envelope delivery when `SENTRY_DSN` or `NEXT_PUBLIC_SENTRY_DSN` is configured.
+- Blocker: owner env values still need to be provided and real ingest must be verified in the target beta environment.
 
 ### Billing
 
@@ -46,7 +46,7 @@ Use this checklist to verify the end-to-end private beta experience across the c
 - [ ] Confirm a Trading 212 CSV preview works.
 - [ ] Confirm successful import emits `csv_import_completed`.
 - [ ] Confirm first successful import emits `first_import` once only.
-- [ ] Confirm import errors are routed to the Sentry capture scaffold.
+- [ ] Confirm import errors are routed to Sentry through the configured bootstrap path.
 
 ### Transactions Review
 
@@ -60,6 +60,13 @@ Use this checklist to verify the end-to-end private beta experience across the c
 - [ ] Visit `/why`.
 - [ ] Confirm the “trusted number” view loads without errors.
 - [ ] Confirm `first_trusted_number` is emitted once only.
+
+### Observability Bootstrap
+
+- [ ] Load an app page with no observability env values and confirm the app still runs without client errors.
+- [ ] Set `NEXT_PUBLIC_POSTHOG_KEY` and confirm browser events reach the target PostHog project.
+- [ ] Set `NEXT_PUBLIC_SENTRY_DSN` and confirm browser-side exceptions arrive in Sentry.
+- [ ] Set `SENTRY_DSN` in the server runtime if server-only reporting is required and confirm API-route exceptions arrive in Sentry.
 
 ## 3. Beta Ops Verification
 
@@ -97,8 +104,8 @@ Use this checklist to verify the end-to-end private beta experience across the c
 Launch remains **NO-GO** until these are resolved:
 
 - [ ] Real Supabase auth env values and callback registration are configured in the target environment.
-- [ ] PostHog SDK bootstrap is installed and verified.
-- [ ] Sentry SDK bootstrap is installed and verified.
+- [ ] PostHog ingest is verified with the chosen beta bootstrap approach.
+- [ ] Sentry ingest is verified with the chosen beta bootstrap approach.
 - [ ] Stripe real checkout flow and webhook handling are implemented.
 - [ ] RevenueCat real SDK configuration and entitlement fetch are implemented.
 - [ ] Owner legal details and contact channels replace all `TODO(owner)` placeholders.

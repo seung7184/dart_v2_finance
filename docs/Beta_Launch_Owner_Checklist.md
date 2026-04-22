@@ -43,10 +43,12 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 ## 4. Observability Provider Inputs
 
 - [ ] Provide `NEXT_PUBLIC_POSTHOG_KEY`.
-- [ ] Decide how PostHog is bootstrapped in the web client.
+- [ ] Decide whether the built-in lightweight PostHog bootstrap is sufficient for beta, or whether the full PostHog SDK must replace it before launch.
+- [ ] Confirm `NEXT_PUBLIC_POSTHOG_HOST` if the beta does not use the default EU PostHog ingest host.
 - [ ] Confirm where the first beta dashboards live and who reviews them.
 - [ ] Provide `NEXT_PUBLIC_SENTRY_DSN`.
-- [ ] Decide how Sentry is bootstrapped in the web client and server runtime.
+- [ ] Provide `SENTRY_DSN` too if the deployment uses a server-only runtime env split.
+- [ ] Decide whether the built-in lightweight Sentry bootstrap is sufficient for beta, or whether the full Sentry SDK must replace it before launch.
 - [ ] Verify that captured exceptions from import/beta/billing flows arrive in Sentry.
 
 ## 5. Billing Provider Inputs
@@ -71,7 +73,8 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 ## Current Blocking Summary
 
 - Supabase auth is now wired to a real callback/token path, but it still needs a real project, env values, and redirect URL registration.
-- Real provider SDK bootstrap is still missing for PostHog, Sentry, Stripe, and RevenueCat.
+- PostHog and Sentry now have env-aware lightweight bootstrap wiring, but they still need real keys/DSNs and ingest verification.
+- Real Stripe and RevenueCat provider bootstrap work is still missing.
 - Current web billing is mock checkout only.
 - Current beta signup is a mock local handler only.
 - Privacy/terms copy still contains explicit `TODO(owner)` placeholders.
