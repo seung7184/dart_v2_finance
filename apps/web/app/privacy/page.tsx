@@ -14,29 +14,28 @@ export default function PrivacyPage() {
             only to operate the product, review imports, and support beta testers.
           </p>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            The waitlist flow in this phase is mock-only. It accepts an email address, declared
-            institution pair, and a short reason for joining so the beta queue can be triaged
-            before any live automation is connected.
+            The waitlist flow accepts an email address, declared institution pair, and a short
+            reason for joining so the beta queue can be triaged before invites are sent.
           </p>
         </Card>
 
         <Card style={{ display: 'grid', gap: '12px' }}>
-          <h2 style={{ fontSize: 'var(--text-xl)' }}>Operational placeholders</h2>
+          <h2 style={{ fontSize: 'var(--text-xl)' }}>Beta privacy details</h2>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            TODO(owner): insert legal entity name, registered address, and final privacy contact
-            inbox.
+            Dart Finance (beta), Rotterdam, Netherlands, is responsible for this beta privacy
+            notice. Privacy questions, deletion requests, and export requests can be sent to
+            privacy@dartfinance.app.
           </p>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            TODO(owner): define retention windows for CSV uploads, waitlist submissions, and
-            support conversations.
+            CSV uploads are retained for up to 30 days. Waitlist submissions and support
+            conversations are retained for up to 12 months.
           </p>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            TODO(owner): document the final deletion workflow once support ownership and backend
-            storage are finalized.
+            Dart Finance processes manual deletion requests on request. Beta users may also request
+            an export of their beta data by contacting privacy@dartfinance.app.
           </p>
         </Card>
       </div>
     </main>
   );
 }
-

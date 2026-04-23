@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  SUPABASE_ACCESS_TOKEN_COOKIE,
-  SUPABASE_REFRESH_TOKEN_COOKIE,
   fetchSupabaseUser,
   getSupabaseAuthConfig,
   getSupabaseSessionFromCookieHeader,
 } from './session';
+import {
+  SUPABASE_ACCESS_TOKEN_COOKIE,
+  SUPABASE_REFRESH_TOKEN_COOKIE,
+} from './constants';
 
 describe('getSupabaseSessionFromCookieHeader', () => {
   it('returns null when auth cookies are missing', () => {

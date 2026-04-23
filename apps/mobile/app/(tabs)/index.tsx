@@ -4,7 +4,7 @@ import { SafeAreaView, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 
 import { formatEUR } from '@dart/core';
 
-import { getRevenueCatBillingState } from '@/src/billing/revenuecat';
+import { getRevenueCatBillingStateFromRuntimeEnv } from '@/src/billing/revenuecat';
 import { mobileColors, mobileRadius } from '@/src/theme';
 
 export default function HomeScreen() {
@@ -12,7 +12,7 @@ export default function HomeScreen() {
     { name: 'Rent', dueLabel: 'Due Apr 25', amountCents: 85000 },
     { name: 'Spotify', dueLabel: 'Due Apr 23', amountCents: 1199 },
   ];
-  const billingState = getRevenueCatBillingState(process.env);
+  const billingState = getRevenueCatBillingStateFromRuntimeEnv();
   const activePlatformState = Platform.OS === 'android' ? billingState.google : billingState.apple;
   const billingBadgeLabel =
     billingState.runtimeStatus === 'sdk_ready'

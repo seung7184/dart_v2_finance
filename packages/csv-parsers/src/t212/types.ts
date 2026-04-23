@@ -7,6 +7,7 @@ export interface T212RawRow {
   'No. of shares': string;
   'Price / share': string;
   Currency: string;
+  'Currency (Total)': string;
   'Exchange rate': string;
   Total: string;
   ID: string;               // external_id
@@ -16,7 +17,6 @@ export const T212_REQUIRED_COLUMNS: string[] = [
   'Action',
   'Time',
   'Total',
-  'Currency',
   'ID',
 ];
 

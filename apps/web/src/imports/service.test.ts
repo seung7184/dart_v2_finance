@@ -229,6 +229,34 @@ describe('executeImport', () => {
     });
   });
 
+  it('accepts Trading 212 exports that label currency as Currency (Total)', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-t212', 'user-2');
+
+    const csvContent = [
+      'Action,Time,Notes,ID,Total,Currency (Total),Merchant name,Merchant category',
+      'Card debit,2026-04-03 12:00:00,,new-id,-17.04,EUR,DIRK VDBROEK FIL4103,RETAIL_STORES',
+    ].join('\n');
+
+    const preview = await getImportPreviewForUser(
+      {
+        accountId: 'account-t212',
+        authenticatedUserId: 'user-2',
+        bank: 'T212',
+        csvContent,
+      },
+      repository,
+    );
+
+    expect(preview.rowCount).toBe(1);
+    expect(preview.errorCount).toBe(0);
+    expect(preview.previewRows[0]).toMatchObject({
+      amountCents: -1704,
+      description: 'Card debit',
+      externalId: 'new-id',
+    });
+  });
+
   it('rejects imports when the authenticated user does not own the account', async () => {
     const repository = new FakeImportRepository();
     repository.addAccount('account-ing', 'user-1');

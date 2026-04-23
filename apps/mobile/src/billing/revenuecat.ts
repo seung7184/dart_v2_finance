@@ -77,3 +77,15 @@ export function getRevenueCatBillingState(
     sdkInstalled,
   };
 }
+
+export function getRevenueCatBillingStateFromRuntimeEnv(
+  options: RevenueCatOptions = {},
+): RevenueCatBillingState {
+  const runtime = globalThis as typeof globalThis & {
+    process?: {
+      env?: BillingEnv;
+    };
+  };
+
+  return getRevenueCatBillingState(runtime.process?.env ?? {}, options);
+}

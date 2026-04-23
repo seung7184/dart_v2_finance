@@ -4,6 +4,10 @@ import { validateRequiredColumns } from '../shared/validators';
 import { t212ActionToIntentHint, t212AmountToCents } from './mapping';
 import { T212_REQUIRED_COLUMNS } from './types';
 
+function getCurrency(rawRow: Record<string, string>) {
+  return rawRow['Currency (Total)'] ?? rawRow['Currency'] ?? 'EUR';
+}
+
 export function parseT212Csv(
   csvContent: string,
   accountId: string,
@@ -52,7 +56,7 @@ export function parseT212Csv(
         external_id: externalId,
         occurred_at: occurredAt,
         amount_cents: t212AmountToCents(rawRow['Total'] ?? '', rawRow['Action'] ?? ''),
-        currency: rawRow['Currency'] ?? 'EUR',
+        currency: getCurrency(rawRow),
         raw_description:
           rawRow['Name'] || rawRow['Ticker'] || rawRow['Action'] || 'Trading 212 transaction',
         source: 't212_csv',

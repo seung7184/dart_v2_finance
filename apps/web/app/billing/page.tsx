@@ -87,9 +87,9 @@ export default function BillingPage() {
           <Badge variant="warning">Billing scaffold</Badge>
           <h1 style={{ fontSize: 'var(--text-3xl)' }}>Billing readiness</h1>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            This phase adds provider-aware wiring only: a mock Stripe checkout request on web and a
-            RevenueCat readiness scaffold for mobile. No live payment session or entitlement sync is
-            enabled here.
+            Billing is not enabled for beta by default. This page exposes live-ready provider
+            wiring only when the required environment values exist, and it keeps unavailable plans
+            disabled instead of presenting them as live.
           </p>
         </div>
 
@@ -158,12 +158,13 @@ export default function BillingPage() {
         <Card style={{ display: 'grid', gap: '12px' }}>
           <h2 style={{ fontSize: 'var(--text-xl)' }}>RevenueCat</h2>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            Public Apple key status:{' '}
-            {providerValue(process.env.NEXT_PUBLIC_REVENUECAT_APPLE_PUBLIC_KEY)}
+            Mobile RevenueCat status is shown in the Expo app, where Apple and Google public keys
+            are checked separately.
           </p>
           <p style={{ color: 'var(--color-text-faint)', fontSize: 'var(--text-sm)' }}>
-            Mobile home now has a provider-aware paywall readiness card. TODO(owner): map the final
-            product identifiers and entitlement names before installing the live SDK.
+            TODO(owner): keep mobile billing disabled until both platform keys, the RevenueCat SDK,
+            offering `default`, entitlement `premium`, and packages `$rc_monthly` / `$rc_annual`
+            are verified in a development build.
           </p>
         </Card>
       </div>

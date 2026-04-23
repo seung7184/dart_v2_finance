@@ -25,17 +25,19 @@ export default function TermsPage() {
         </Card>
 
         <Card style={{ display: 'grid', gap: '12px' }}>
-          <h2 style={{ fontSize: 'var(--text-xl)' }}>Owner-supplied details still required</h2>
+          <h2 style={{ fontSize: 'var(--text-xl)' }}>Beta terms details</h2>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            TODO(owner): insert governing entity, applicable jurisdiction, and effective date.
+            These beta terms are provided by Dart Finance (beta), Rotterdam, Netherlands. They are
+            effective from April 23, 2026 and governed by the laws of The Netherlands.
           </p>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            TODO(owner): add the final support email and feedback response expectations for beta
-            participants.
+            Support and feedback should be sent to support@dartfinance.app. The target response time
+            for beta support is 5 business days.
           </p>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            TODO(owner): decide whether invite revocation, data export, and beta sunset notice need
-            explicit clauses before external invites begin.
+            Beta access may be revoked if needed to operate or protect the beta. If the beta is
+            paused or ended, Dart Finance will give a simple sunset notice where practical. Beta
+            users may request deletion or export of their beta data through privacy@dartfinance.app.
           </p>
         </Card>
       </div>
