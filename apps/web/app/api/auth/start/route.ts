@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { SUPABASE_AUTH_CALLBACK_PATH } from '@/auth/constants';
 import { captureServerException } from '@/observability/server';
 import { getSupabaseAuthConfig } from '@/auth/session';
+import { buildSupabaseOtpPayload, parseSupabaseAuthStartError } from '@/auth/start';
 
 type StartAuthRequest = {
   email?: unknown;
@@ -36,17 +37,12 @@ export async function POST(request: Request) {
         'content-type': 'application/json',
         apikey: config.anonKey,
       },
-      body: JSON.stringify({
-        create_user: true,
-        email,
-        options: {
-          email_redirect_to: callbackUrl,
-        },
-      }),
+      body: JSON.stringify(buildSupabaseOtpPayload(email, callbackUrl)),
     });
 
     if (!response.ok) {
-      return NextResponse.json({ error: 'SUPABASE_AUTH_START_FAILED' }, { status: 502 });
+      const error = await parseSupabaseAuthStartError(response);
+      return NextResponse.json({ error: error.error }, { status: error.status });
     }
 
     return NextResponse.json({
