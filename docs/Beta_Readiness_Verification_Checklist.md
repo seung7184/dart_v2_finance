@@ -25,8 +25,8 @@ Use this checklist to verify the end-to-end private beta experience across the c
 ### Billing
 
 - Current state: web billing can create a live Stripe Checkout session when the selected plan price ID and server secret key are configured.
-- Current state: mobile billing exposes RevenueCat offering/entitlement readiness only.
-- Blocker: Stripe webhook handling and real RevenueCat SDK wiring are not present.
+- Current state: mobile billing exposes a shared RevenueCat contract for offering `default`, entitlement `premium`, and packages `$rc_monthly` / `$rc_annual`, with Apple and Google availability tracked separately.
+- Blocker: Stripe webhook handling and real RevenueCat SDK installation are not present.
 
 ## 2. Core Web Flow Verification
 
@@ -95,9 +95,12 @@ Use this checklist to verify the end-to-end private beta experience across the c
 ### Mobile
 
 - [ ] Open the mobile home screen.
-- [ ] Confirm the RevenueCat readiness card renders.
-- [ ] Confirm offering `beta_default` and entitlement `dart_pro` are displayed.
-- [ ] Confirm the status reflects env-key presence only, not a live SDK call.
+- [ ] Confirm the RevenueCat billing card renders.
+- [ ] Confirm offering `default` and entitlement `premium` are displayed.
+- [ ] Confirm package identifiers `$rc_monthly` and `$rc_annual` are displayed.
+- [ ] Confirm Apple billing stays unavailable when `EXPO_PUBLIC_REVENUECAT_APPLE_PUBLIC_KEY` is absent.
+- [ ] Confirm Google billing stays unavailable when `EXPO_PUBLIC_REVENUECAT_GOOGLE_PUBLIC_KEY` is absent.
+- [ ] Confirm the status still reports `SDK missing` until the real RevenueCat SDK is installed.
 
 ## 5. Required Validation Commands
 
@@ -112,6 +115,6 @@ Launch remains **NO-GO** until these are resolved:
 - [ ] PostHog ingest is verified with the chosen beta bootstrap approach.
 - [ ] Sentry ingest is verified with the chosen beta bootstrap approach.
 - [ ] Stripe live keys, both price IDs, webhook registration, and post-checkout subscription handling are implemented.
-- [ ] RevenueCat real SDK configuration and entitlement fetch are implemented.
+- [ ] RevenueCat Apple and Google public keys, SDK installation, and live entitlement/offering fetch are implemented.
 - [ ] Owner legal details and contact channels replace all `TODO(owner)` placeholders.
 - [ ] The owner invite/review workflow for rows in `beta_signups` is defined and tested.

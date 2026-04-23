@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { Platform } from 'react-native';
 import { SafeAreaView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { formatEUR } from '@dart/core';
@@ -12,6 +13,15 @@ export default function HomeScreen() {
     { name: 'Spotify', dueLabel: 'Due Apr 23', amountCents: 1199 },
   ];
   const billingState = getRevenueCatBillingState(process.env);
+  const activePlatformState = Platform.OS === 'android' ? billingState.google : billingState.apple;
+  const billingBadgeLabel =
+    billingState.runtimeStatus === 'sdk_ready'
+      ? 'SDK ready'
+      : billingState.contractStatus === 'configured'
+        ? 'SDK missing'
+        : billingState.contractStatus === 'partial'
+          ? 'Partial config'
+          : 'Pending keys';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -68,18 +78,33 @@ export default function HomeScreen() {
           <View style={styles.cardRow}>
             <Text style={styles.cardLabel}>Mobile billing</Text>
             <View style={styles.protectedBadge}>
-              <Text style={styles.protectedBadgeText}>
-                {billingState.status === 'configured' ? 'Ready' : 'Pending key'}
-              </Text>
+              <Text style={styles.protectedBadgeText}>{billingBadgeLabel}</Text>
             </View>
           </View>
-          <Text style={styles.listTitle}>RevenueCat paywall wiring</Text>
+          <Text style={styles.listTitle}>RevenueCat billing contract</Text>
           <Text style={styles.cardMeta}>
             Offering: {billingState.offering} · Entitlement: {billingState.entitlement}
           </Text>
           <Text style={styles.cardMeta}>
-            TODO(owner): set EXPO_PUBLIC_REVENUECAT_APPLE_PUBLIC_KEY before installing the live
-            SDK and entitlement fetch.
+            Packages: {billingState.apple.packageIds.join(' · ')}
+          </Text>
+          <Text style={styles.cardMeta}>
+            Apple billing: {billingState.apple.publicKeyPresent ? 'Configured' : 'Unavailable'}
+          </Text>
+          <Text style={styles.cardMeta}>
+            Google billing: {billingState.google.publicKeyPresent ? 'Configured' : 'Unavailable'}
+          </Text>
+          <Text style={styles.cardMeta}>
+            This {activePlatformState.platform === 'ios' ? 'iOS' : 'Android'} build currently sees{' '}
+            {activePlatformState.publicKeyPresent ? 'a platform key' : 'no platform key'}.
+          </Text>
+          <Text style={styles.cardMeta}>
+            RevenueCat SDK runtime: {billingState.runtimeStatus === 'sdk_ready' ? 'Installed' : 'Not installed'}
+          </Text>
+          <Text style={styles.cardMeta}>
+            TODO(owner): set both platform public keys, install `react-native-purchases` in a dev
+            build, and verify the `default` offering exposes `$rc_monthly` and `$rc_annual` for
+            entitlement `premium`.
           </Text>
         </View>
       </ScrollView>

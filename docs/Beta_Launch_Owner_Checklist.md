@@ -62,9 +62,12 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 - [ ] Register the Stripe webhook endpoint for checkout/subscription events in the target environment.
 - [ ] Verify that monthly and annual plans each stay hidden or unavailable when their own price IDs are absent.
 - [ ] Provide `EXPO_PUBLIC_REVENUECAT_APPLE_PUBLIC_KEY`.
-- [ ] Confirm the final RevenueCat offering identifier.
-- [ ] Confirm the final RevenueCat entitlement identifier.
-- [ ] Decide how RevenueCat entitlements map to the paid beta plan.
+- [ ] Provide `EXPO_PUBLIC_REVENUECAT_GOOGLE_PUBLIC_KEY`.
+- [ ] Confirm the shared RevenueCat offering identifier is `default`.
+- [ ] Confirm the shared RevenueCat entitlement identifier is `premium`.
+- [ ] Confirm the shared RevenueCat package identifiers are `$rc_monthly` and `$rc_annual`.
+- [ ] Install and configure `react-native-purchases` in an Expo development build before claiming mobile billing is live.
+- [ ] Verify each platform stays unavailable when its own public key is absent.
 
 ## 6. Beta Operations Decisions
 
@@ -81,6 +84,6 @@ This checklist captures the owner-provided legal details, provider keys, and ext
 - Supabase auth is now wired to a real callback/token path, but it still needs a real project, env values, and redirect URL registration.
 - PostHog and Sentry now have env-aware lightweight bootstrap wiring, but they still need real keys/DSNs and ingest verification.
 - Stripe checkout now has a live-ready session creation path, but it still needs real keys, both price IDs, webhook registration, and downstream subscription handling.
-- RevenueCat provider bootstrap work is still missing.
+- RevenueCat now has a live-ready cross-store config contract, but it still needs both public keys, SDK installation, and entitlement/offering verification in a development build.
 - Beta signup now writes to the app database, but the owner still needs the real DB migration applied and an operational review/send-invite workflow.
 - Privacy/terms copy still contains explicit `TODO(owner)` placeholders.
