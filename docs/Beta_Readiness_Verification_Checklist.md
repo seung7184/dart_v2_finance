@@ -14,6 +14,7 @@ Use this checklist to verify the end-to-end private beta experience across the c
 
 - Current state: app routes require valid Supabase access/refresh token cookies and resolve the user through the Supabase Auth `/user` endpoint.
 - Current state: web auth start uses a Supabase-compatible magic link request and `/auth/callback` token handoff.
+- Verification note: start local web auth checks with `pnpm run web:dev` so the app runs on `http://localhost:3000`.
 - Blocker: a real Supabase project, anon key, and registered callback URL are still required.
 
 ### Observability
