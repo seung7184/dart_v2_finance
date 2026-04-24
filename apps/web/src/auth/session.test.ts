@@ -69,7 +69,7 @@ describe('fetchSupabaseUser', () => {
           anonKey: 'anon-key',
           authUrl: 'https://project.supabase.co/auth/v1',
         },
-        fetchImpl as typeof fetch,
+        fetchImpl as unknown as typeof fetch,
       ),
     ).resolves.toEqual({
       id: 'user-123',
@@ -97,7 +97,7 @@ describe('fetchSupabaseUser', () => {
           anonKey: 'anon-key',
           authUrl: 'https://project.supabase.co/auth/v1',
         },
-        fetchImpl as typeof fetch,
+        fetchImpl as unknown as typeof fetch,
       ),
     ).resolves.toBeNull();
   });

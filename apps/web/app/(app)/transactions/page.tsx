@@ -1,181 +1,167 @@
-'use client';
+import type { CSSProperties } from 'react';
+import { desc, eq } from 'drizzle-orm';
+import { formatEUR } from '@dart/core';
+import { accounts, db, transactions } from '@dart/db';
+import { requireAuthenticatedAppUser } from '@/auth/session';
 
-import { useState } from 'react';
-import { trackEvent } from '@/observability/client';
+export const dynamic = 'force-dynamic';
 
-type ReviewStatus = 'pending' | 'reviewed' | 'needs_attention';
-type Intent =
+type ReviewStatus = 'pending' | 'reviewed' | 'needs_attention' | 'auto_approved';
+
+type TransactionIntent =
   | 'living_expense'
   | 'recurring_bill'
+  | 'income_salary'
+  | 'income_dividend'
+  | 'income_refund'
+  | 'income_other'
   | 'transfer'
+  | 'reimbursement_out'
+  | 'reimbursement_in'
   | 'investment_contribution'
-  | 'income_refund';
+  | 'investment_buy'
+  | 'investment_sell'
+  | 'fee'
+  | 'tax'
+  | 'adjustment'
+  | 'unclassified';
 
 type TransactionRow = {
   id: string;
-  date: string;
-  description: string;
-  amountCents: number;
-  intent: Intent;
+  accountName: string;
+  amount: number;
+  currency: string;
+  intent: TransactionIntent;
+  occurredAt: Date;
+  rawDescription: string;
   reviewStatus: ReviewStatus;
+  source: string;
 };
 
-const INITIAL_ROWS: TransactionRow[] = [
-  {
-    id: 'tx-1',
-    date: 'Apr 20',
-    description: 'ING to Trading 212 deposit',
-    amountCents: -80000,
-    intent: 'transfer',
-    reviewStatus: 'pending',
-  },
-  {
-    id: 'tx-2',
-    date: 'Apr 19',
-    description: 'Albert Heijn',
-    amountCents: -4620,
-    intent: 'living_expense',
-    reviewStatus: 'reviewed',
-  },
-  {
-    id: 'tx-3',
-    date: 'Apr 18',
-    description: 'Rent',
-    amountCents: -120000,
-    intent: 'recurring_bill',
-    reviewStatus: 'reviewed',
-  },
-  {
-    id: 'tx-4',
-    date: 'Apr 17',
-    description: 'Dividend received',
-    amountCents: 1284,
-    intent: 'income_refund',
-    reviewStatus: 'needs_attention',
-  },
-];
+const GRID = '104px minmax(132px, 0.8fr) minmax(220px, 1.3fr) 124px 148px 132px';
 
-const INTENT_CONFIG: Record<Intent, { label: string; bg: string; fg: string; bd: string }> = {
-  living_expense: {
-    label: 'Living',
-    bg: 'var(--surface-2)',
-    fg: 'var(--text-secondary)',
-    bd: 'var(--border-subtle)',
-  },
-  investment_contribution: {
-    label: 'Investing',
-    bg: 'var(--accent-tint)',
-    fg: 'var(--accent-400)',
-    bd: 'transparent',
-  },
-  recurring_bill: {
-    label: 'Bill',
-    bg: 'var(--warning-tint)',
-    fg: 'var(--warning)',
-    bd: 'transparent',
-  },
-  transfer: {
-    label: 'Transfer',
-    bg: 'transparent',
-    fg: 'var(--text-tertiary)',
-    bd: 'var(--border-subtle)',
-  },
-  income_refund: {
-    label: 'Reimb. In',
-    bg: 'var(--positive-tint)',
-    fg: 'var(--positive)',
-    bd: 'transparent',
-  },
+const INTENT_LABELS: Record<TransactionIntent, string> = {
+  living_expense: 'Living',
+  recurring_bill: 'Bill',
+  income_salary: 'Salary',
+  income_dividend: 'Dividend',
+  income_refund: 'Refund',
+  income_other: 'Income',
+  transfer: 'Transfer',
+  reimbursement_out: 'Reimb. out',
+  reimbursement_in: 'Reimb. in',
+  investment_contribution: 'Investing',
+  investment_buy: 'Buy',
+  investment_sell: 'Sell',
+  fee: 'Fee',
+  tax: 'Tax',
+  adjustment: 'Adjust',
+  unclassified: 'Unclassified',
 };
 
-function formatEURCents(cents: number): string {
-  const abs = Math.abs(cents) / 100;
-  return new Intl.NumberFormat('nl-NL', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(abs);
+function formatDate(value: Date): string {
+  return new Intl.DateTimeFormat('en-NL', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(value);
 }
 
-function IntentBadge({ intent }: { intent: Intent }) {
-  const cfg = INTENT_CONFIG[intent];
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '2px 8px',
-        borderRadius: 4,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: '0.01em',
-        background: cfg.bg,
-        color: cfg.fg,
-        border: `1px solid ${cfg.bd}`,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {cfg.label}
-    </span>
-  );
+function badgeStyle(tone: 'neutral' | 'positive' | 'warning' | 'accent'): CSSProperties {
+  const tones = {
+    neutral: {
+      background: 'var(--surface-2)',
+      border: 'var(--border-subtle)',
+      color: 'var(--text-secondary)',
+    },
+    positive: {
+      background: 'var(--positive-tint)',
+      border: 'transparent',
+      color: 'var(--positive)',
+    },
+    warning: {
+      background: 'var(--warning-tint)',
+      border: 'transparent',
+      color: 'var(--warning)',
+    },
+    accent: {
+      background: 'var(--accent-tint)',
+      border: 'transparent',
+      color: 'var(--accent-400)',
+    },
+  }[tone];
+
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    width: 'fit-content',
+    minHeight: 22,
+    padding: '2px 8px',
+    borderRadius: 4,
+    border: `1px solid ${tones.border}`,
+    background: tones.background,
+    color: tones.color,
+    fontSize: 11,
+    fontWeight: 600,
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+  };
 }
 
-function StatusPill({ status }: { status: ReviewStatus }) {
-  if (status === 'pending' || status === 'needs_attention') {
-    return (
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 5,
-          fontSize: 12,
-          fontWeight: 500,
-          color: 'var(--warning)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: 'var(--warning)',
-            flexShrink: 0,
-          }}
-        />
-        {status === 'needs_attention' ? 'Needs review' : 'Pending'}
-      </span>
-    );
+function intentTone(intent: TransactionIntent): 'neutral' | 'positive' | 'warning' | 'accent' {
+  if (
+    intent === 'investment_contribution' ||
+    intent === 'investment_buy' ||
+    intent === 'investment_sell'
+  ) {
+    return 'accent';
   }
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        fontSize: 12,
-        color: 'var(--text-tertiary)',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width="12"
-        height="12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 12l5 5L20 6" />
-      </svg>
-      Reviewed
-    </span>
-  );
+
+  if (
+    intent === 'income_salary' ||
+    intent === 'income_dividend' ||
+    intent === 'income_refund' ||
+    intent === 'income_other' ||
+    intent === 'reimbursement_in'
+  ) {
+    return 'positive';
+  }
+
+  if (intent === 'recurring_bill' || intent === 'fee' || intent === 'tax') {
+    return 'warning';
+  }
+
+  return 'neutral';
 }
 
-function Amount({ cents }: { cents: number }) {
-  const positive = cents > 0;
+function statusTone(reviewStatus: ReviewStatus): 'neutral' | 'positive' | 'warning' | 'accent' {
+  if (reviewStatus === 'reviewed' || reviewStatus === 'auto_approved') {
+    return 'positive';
+  }
+
+  if (reviewStatus === 'needs_attention') {
+    return 'warning';
+  }
+
+  return 'accent';
+}
+
+function statusLabel(reviewStatus: ReviewStatus): string {
+  if (reviewStatus === 'needs_attention') {
+    return 'Needs review';
+  }
+
+  if (reviewStatus === 'auto_approved') {
+    return 'Auto approved';
+  }
+
+  return reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1);
+}
+
+function Amount({ amount, currency }: { amount: number; currency: string }) {
+  const positive = amount > 0;
+  const displayAmount = currency === 'EUR' ? formatEUR(amount) : `${amount} ${currency}`;
+
   return (
     <span
       style={{
@@ -184,62 +170,45 @@ function Amount({ cents }: { cents: number }) {
         fontFeatureSettings: '"tnum","ss01"',
         fontWeight: 600,
         fontSize: 13,
-        letterSpacing: '-0.005em',
-        display: 'inline-flex',
-        alignItems: 'baseline',
-        gap: 3,
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ color: positive ? 'var(--positive)' : 'var(--text-tertiary)', fontWeight: 500 }}>
-        {positive ? '+' : '−'}
-      </span>
-      <span style={{ color: positive ? 'var(--positive)' : 'var(--text-tertiary)', fontWeight: 500 }}>
-        €
-      </span>
-      <span>{formatEURCents(cents)}</span>
+      {positive ? '+' : ''}
+      {displayAmount}
     </span>
   );
 }
 
-const GRID = '80px 1fr 130px 130px 110px 44px';
+async function getTransactionsForUser(userId: string): Promise<TransactionRow[]> {
+  return db
+    .select({
+      id: transactions.id,
+      accountName: accounts.name,
+      amount: transactions.amount,
+      currency: transactions.currency,
+      intent: transactions.intent,
+      occurredAt: transactions.occurredAt,
+      rawDescription: transactions.rawDescription,
+      reviewStatus: transactions.reviewStatus,
+      source: transactions.source,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(eq(transactions.userId, userId))
+    .orderBy(desc(transactions.occurredAt))
+    .limit(100);
+}
 
-export default function TransactionsPage() {
-  const [rows, setRows] = useState<TransactionRow[]>(INITIAL_ROWS);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [needsAttentionOnly, setNeedsAttentionOnly] = useState(false);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-
-  const visibleRows = needsAttentionOnly
-    ? rows.filter((row) => row.reviewStatus !== 'reviewed')
-    : rows;
-  const unreviewedCount = rows.filter((r) => r.reviewStatus !== 'reviewed').length;
-  const unreviewedTotal = rows
-    .filter((r) => r.reviewStatus !== 'reviewed')
-    .reduce((sum, r) => sum + Math.abs(r.amountCents), 0);
-
-  function toggleSelected(id: string) {
-    setSelectedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
-  }
-
-  function applyBulkStatus(nextStatus: ReviewStatus) {
-    const changedCount = rows.filter((row) => selectedIds.includes(row.id)).length;
-    setRows((current) =>
-      current.map((row) =>
-        selectedIds.includes(row.id) ? { ...row, reviewStatus: nextStatus } : row,
-      ),
-    );
-    if (changedCount > 0) {
-      trackEvent('transaction_reviewed', { changedCount, nextStatus, source: 'bulk_review' });
-    }
-    setSelectedIds([]);
-  }
+export default async function TransactionsPage() {
+  const userId = await requireAuthenticatedAppUser();
+  const rows = await getTransactionsForUser(userId);
+  const unreviewedRows = rows.filter(
+    (row) => row.reviewStatus === 'pending' || row.reviewStatus === 'needs_attention',
+  );
+  const unreviewedTotal = unreviewedRows.reduce((sum, row) => sum + Math.abs(row.amount), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* Topbar */}
       <div
         style={{
           padding: '18px 32px',
@@ -258,83 +227,21 @@ export default function TransactionsPage() {
               fontSize: 20,
               fontWeight: 600,
               color: 'var(--text-primary)',
-              letterSpacing: '-0.02em',
             }}
           >
             Transactions
           </h1>
           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
-            Review queue · ING + Trading 212
+            Latest imported rows · ING + Trading 212
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 12,
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={needsAttentionOnly}
-              onChange={(e) => setNeedsAttentionOnly(e.target.checked)}
-              style={{ accentColor: 'var(--accent-500)' }}
-            />
-            Needs review only
-          </label>
-          {selectedIds.length > 0 && (
-            <>
-              <button
-                type="button"
-                onClick={() => applyBulkStatus('reviewed')}
-                style={{
-                  height: 32,
-                  padding: '0 12px',
-                  background: 'var(--surface-2)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 8,
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  letterSpacing: '-0.005em',
-                }}
-              >
-                Mark reviewed ({selectedIds.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => applyBulkStatus('needs_attention')}
-                style={{
-                  height: 32,
-                  padding: '0 12px',
-                  background: 'transparent',
-                  color: 'var(--warning)',
-                  border: '1px solid rgba(230,194,122,0.32)',
-                  borderRadius: 8,
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  letterSpacing: '-0.005em',
-                }}
-              >
-                Needs attention
-              </button>
-            </>
-          )}
+        <div style={{ ...badgeStyle(unreviewedRows.length > 0 ? 'warning' : 'positive'), minHeight: 28 }}>
+          {rows.length} rows
         </div>
       </div>
 
       <div style={{ padding: '24px 32px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Review banner */}
-        {unreviewedCount > 0 && (
+        {unreviewedRows.length > 0 ? (
           <div
             style={{
               display: 'flex',
@@ -364,16 +271,16 @@ export default function TransactionsPage() {
               !
             </span>
             <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-              {unreviewedCount} transaction{unreviewedCount !== 1 ? 's' : ''} need{unreviewedCount === 1 ? 's' : ''} review
+              {unreviewedRows.length} transaction{unreviewedRows.length !== 1 ? 's' : ''} need
+              {unreviewedRows.length === 1 ? 's' : ''} review
             </span>
             <span style={{ color: 'var(--text-tertiary)' }}>·</span>
             <span style={{ color: 'var(--text-tertiary)' }}>
-              affects safe-to-spend by €{formatEURCents(unreviewedTotal)}
+              safe-to-spend reserve impact {formatEUR(unreviewedTotal)}
             </span>
           </div>
-        )}
+        ) : null}
 
-        {/* Table */}
         <div
           style={{
             background: 'var(--surface-1)',
@@ -382,7 +289,6 @@ export default function TransactionsPage() {
             overflow: 'hidden',
           }}
         >
-          {/* Header */}
           <div
             style={{
               display: 'grid',
@@ -392,137 +298,100 @@ export default function TransactionsPage() {
               borderBottom: '1px solid var(--border-subtle)',
             }}
           >
-            {[
-              { label: 'Date', align: 'left' },
-              { label: 'Description', align: 'left' },
-              { label: 'Amount', align: 'right' },
-              { label: 'Intent', align: 'left' },
-              { label: 'Status', align: 'right' },
-              { label: '', align: 'left' },
-            ].map((h, i) => (
+            {['Date', 'Account', 'Description', 'Amount', 'Intent', 'Status'].map((heading) => (
               <div
-                key={i}
+                key={heading}
                 style={{
                   fontSize: 10,
                   fontWeight: 600,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   color: 'var(--text-tertiary)',
-                  textAlign: h.align as 'left' | 'right',
+                  textAlign: heading === 'Amount' ? 'right' : 'left',
                 }}
               >
-                {h.label}
+                {heading}
               </div>
             ))}
           </div>
 
-          {/* Rows */}
-          {visibleRows.map((row) => {
-            const needsReview = row.reviewStatus !== 'reviewed';
-            const isHovered = hoveredId === row.id;
-            const isSelected = selectedIds.includes(row.id);
-            return (
-              <div
-                key={row.id}
-                onMouseEnter={() => setHoveredId(row.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: GRID,
-                  alignItems: 'center',
-                  gap: 16,
-                  padding: '12px 20px',
-                  borderTop: '1px solid var(--border-subtle)',
-                  background: isSelected
-                    ? 'var(--accent-tint)'
-                    : needsReview
-                    ? 'rgba(230,194,122,0.04)'
-                    : isHovered
-                    ? 'var(--surface-2)'
-                    : 'transparent',
-                  cursor: 'pointer',
-                  transition: 'background 80ms var(--ease-standard)',
-                }}
-              >
+          {rows.length === 0 ? (
+            <div
+              style={{
+                padding: '28px 20px',
+                color: 'var(--text-tertiary)',
+                fontSize: 13,
+              }}
+            >
+              No imported transactions found for this user yet.
+            </div>
+          ) : (
+            rows.map((row) => {
+              const needsReview =
+                row.reviewStatus === 'pending' || row.reviewStatus === 'needs_attention';
+
+              return (
                 <div
+                  key={row.id}
                   style={{
-                    fontSize: 12,
-                    color: 'var(--text-tertiary)',
-                    fontVariantNumeric: 'tabular-nums',
-                    letterSpacing: '-0.005em',
+                    display: 'grid',
+                    gridTemplateColumns: GRID,
+                    alignItems: 'center',
+                    gap: 16,
+                    padding: '12px 20px',
+                    borderTop: '1px solid var(--border-subtle)',
+                    background: needsReview ? 'rgba(230,194,122,0.04)' : 'transparent',
                   }}
                 >
-                  {row.date}
-                </div>
-                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--text-tertiary)',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {formatDate(row.occurredAt)}
+                  </div>
                   <div
                     style={{
                       fontSize: 13,
-                      color: 'var(--text-primary)',
-                      fontWeight: 500,
-                      letterSpacing: '-0.005em',
+                      color: 'var(--text-secondary)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                     }}
                   >
-                    {row.description}
+                    {row.accountName}
                   </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <Amount cents={row.amountCents} />
-                </div>
-                <div>
-                  <select
-                    value={row.intent}
-                    onChange={(e) => {
-                      const nextIntent = e.target.value as Intent;
-                      setRows((current) =>
-                        current.map((item) =>
-                          item.id === row.id ? { ...item, intent: nextIntent } : item,
-                        ),
-                      );
-                      trackEvent('transaction_reviewed', {
-                        changedCount: 1,
-                        nextIntent,
-                        reviewStatus: row.reviewStatus,
-                        source: 'intent_select',
-                      });
-                    }}
+                  <div
                     style={{
-                      background: 'transparent',
-                      border: 'none',
-                      outline: 'none',
-                      color: 'inherit',
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: 11,
-                      cursor: 'pointer',
+                      minWidth: 0,
+                      fontSize: 13,
+                      color: 'var(--text-primary)',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
-                    {(Object.keys(INTENT_CONFIG) as Intent[]).map((key) => (
-                      <option key={key} value={key}>
-                        {INTENT_CONFIG[key].label}
-                      </option>
-                    ))}
-                  </select>
-                  <IntentBadge intent={row.intent} />
+                    {row.rawDescription}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Amount amount={row.amount} currency={row.currency} />
+                  </div>
+                  <div>
+                    <span style={badgeStyle(intentTone(row.intent))}>{INTENT_LABELS[row.intent]}</span>
+                  </div>
+                  <div>
+                    <span style={badgeStyle(statusTone(row.reviewStatus))}>
+                      {statusLabel(row.reviewStatus)}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <StatusPill status={row.reviewStatus} />
-                </div>
-                <div>
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleSelected(row.id)}
-                    style={{ accentColor: 'var(--accent-500)', cursor: 'pointer' }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
 
-          {/* Footer */}
           <div
             style={{
               display: 'flex',
@@ -535,8 +404,7 @@ export default function TransactionsPage() {
             }}
           >
             <span>
-              {visibleRows.length} transaction{visibleRows.length !== 1 ? 's' : ''}
-              {needsAttentionOnly ? ' · filtered' : ''}
+              Showing {rows.length} transaction{rows.length !== 1 ? 's' : ''}
             </span>
             <span style={{ color: 'var(--text-disabled)', fontSize: 11 }}>
               Import more via Import CSV in the sidebar

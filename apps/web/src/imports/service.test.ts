@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   executeImport,
@@ -6,10 +7,20 @@ import {
   type ImportRepository,
 } from './service';
 
+type FakeTransactionRecord = {
+  id: string;
+  accountId?: string;
+  amount?: number;
+  externalId?: string | null;
+  occurredAt?: Date;
+  rawDescription?: string;
+  [key: string]: unknown;
+};
+
 class FakeImportRepository implements ImportRepository {
   public readonly batches: Array<Record<string, unknown>> = [];
   public readonly importRows: Array<Record<string, unknown>> = [];
-  public readonly transactions: Array<Record<string, unknown>> = [];
+  public readonly transactions: FakeTransactionRecord[] = [];
   private readonly accounts = new Map<string, { id: string; userId: string }>();
   private readonly existingBatches = new Map<string, ImportBatchRecord>();
 
@@ -112,7 +123,10 @@ class FakeImportRepository implements ImportRepository {
     return this.existingBatches.get(`${userId}:${fileHash}`) ?? null;
   }
 
-  async findTransactionByExternalId(accountId: string, externalId: string) {
+  async findTransactionByExternalId(
+    accountId: string,
+    externalId: string,
+  ): Promise<{ id: string } | null> {
     return (
       this.transactions.find(
         (transaction) =>
@@ -126,7 +140,7 @@ class FakeImportRepository implements ImportRepository {
     amount: number;
     occurredAt: Date;
     rawDescription: string;
-  }) {
+  }): Promise<{ id: string } | null> {
     return (
       this.transactions.find(
         (transaction) =>
@@ -254,6 +268,42 @@ describe('executeImport', () => {
       amountCents: -1704,
       description: 'Card debit',
       externalId: 'new-id',
+    });
+  });
+
+  it('imports the beta smoke Trading 212 CSV without parser errors or timeout-scale work', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-t212', 'user-2');
+    const csvContent = readFileSync(
+      '../../test-data/from_2026-01-01_to_2026-04-15_MTc3NjI2MDgyOTczMw.csv',
+      'utf8',
+    );
+
+    const result = await executeImport(
+      {
+        accountId: 'account-t212',
+        authenticatedUserId: 'user-2',
+        bank: 'T212',
+        csvContent,
+        originalFilename: 'from_2026-01-01_to_2026-04-15_MTc3NjI2MDgyOTczMw.csv',
+      },
+      repository,
+    );
+
+    expect(result).toMatchObject({
+      alreadyImported: false,
+      duplicateCount: 0,
+      errorCount: 0,
+      importedCount: 393,
+      rowCount: 393,
+    });
+    expect(repository.transactions).toHaveLength(393);
+    expect(repository.importRows).toHaveLength(393);
+    expect(repository.transactions[0]).toMatchObject({
+      amount: 22,
+      currency: 'EUR',
+      intent: 'income_other',
+      source: 't212_csv',
     });
   });
 
