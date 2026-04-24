@@ -2,7 +2,9 @@ export function buildSupabaseOtpPayload(email: string, callbackUrl: string) {
   return {
     create_user: true,
     email,
-    redirect_to: callbackUrl,
+    options: {
+      email_redirect_to: callbackUrl,
+    },
   };
 }
 

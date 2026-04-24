@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { buildSupabaseOtpPayload, parseSupabaseAuthStartError } from './start';
 
 describe('buildSupabaseOtpPayload', () => {
-  it('sends the auth callback URL as redirect_to for Supabase otp', () => {
+  it('sends the auth callback URL as email_redirect_to for Supabase otp email flows', () => {
     expect(
       buildSupabaseOtpPayload('user@example.com', 'http://localhost:3000/auth/callback'),
     ).toEqual({
       create_user: true,
       email: 'user@example.com',
-      redirect_to: 'http://localhost:3000/auth/callback',
+      options: {
+        email_redirect_to: 'http://localhost:3000/auth/callback',
+      },
     });
   });
 });
