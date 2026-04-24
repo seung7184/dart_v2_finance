@@ -1,3 +1,5 @@
+import { RootTokenRedirect } from '@/auth/root-token-redirect.client';
+
 export default function LandingPage() {
   return (
     <main
@@ -12,6 +14,7 @@ export default function LandingPage() {
         padding: '24px',
       }}
     >
+      <RootTokenRedirect />
       <h1
         style={{
           fontSize: '2rem',
