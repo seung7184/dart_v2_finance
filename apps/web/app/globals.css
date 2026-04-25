@@ -11,10 +11,48 @@
 
 html,
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--surface-0);
+  color: var(--text-secondary);
   font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: var(--tracking-body);
+  font-feature-settings: "ss01", "cv11", "tnum";
 }
+
+/* Tabular figures for money */
+.num,
+.money,
+[data-num] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "ss01";
+}
+
+a {
+  color: var(--accent-500);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent-400);
+}
+
+button {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--accent-tint);
+  color: var(--text-primary);
+}
+
+/* Minimal scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--surface-4);
+  border-radius: 5px;
+  border: 2px solid var(--surface-0);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }

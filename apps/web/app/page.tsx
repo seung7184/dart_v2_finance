@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { RootTokenRedirect } from '@/auth/root-token-redirect.client';
 
 export default function LandingPage() {
@@ -5,69 +6,207 @@ export default function LandingPage() {
     <main
       style={{
         minHeight: '100vh',
+        background: 'var(--surface-0)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--color-bg)',
-        gap: '18px',
-        padding: '24px',
+        padding: '40px 24px',
+        gap: 0,
       }}
     >
       <RootTokenRedirect />
-      <h1
+
+      {/* Brand mark */}
+      <div
         style={{
-          fontSize: '2rem',
-          fontWeight: 700,
-          color: 'var(--color-safe)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 48,
         }}
       >
-        Dart Finance
-      </h1>
-      <p style={{ color: 'var(--color-text-muted)', fontSize: '1rem' }}>
-        Investor-aware safe-to-spend for employed investors in the Netherlands.
-      </p>
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <a
-          href="/readiness"
+        <div
           style={{
-            color: 'var(--color-text)',
-            textDecoration: 'none',
-            border: '1px solid var(--color-border)',
-            borderRadius: '999px',
-            padding: '10px 16px',
-            background: 'var(--color-surface)',
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: 'var(--accent-500)',
+            color: '#fff',
+            display: 'grid',
+            placeItems: 'center',
+            fontWeight: 800,
+            fontSize: 20,
+            letterSpacing: '-0.02em',
           }}
         >
-          Phase 3 readiness
-        </a>
-        <a
+          D
+        </div>
+        <span
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          Dart Finance
+        </span>
+      </div>
+
+      {/* Hero number — the product promise */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 40,
+          textAlign: 'center',
+          maxWidth: 560,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--text-tertiary)',
+            marginBottom: 4,
+          }}
+        >
+          Safe to spend today
+        </div>
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'baseline',
+            gap: 6,
+            color: 'var(--text-primary)',
+            fontVariantNumeric: 'tabular-nums',
+            fontFeatureSettings: '"tnum","ss01"',
+            fontWeight: 600,
+            letterSpacing: '-0.04em',
+            lineHeight: 0.96,
+          }}
+        >
+          <span style={{ fontSize: 28, color: 'var(--text-tertiary)', fontWeight: 500 }}>€</span>
+          <span style={{ fontSize: 64 }}>
+            37
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>,20</span>
+          </span>
+        </div>
+        <p
+          style={{
+            fontSize: 14,
+            color: 'var(--text-secondary)',
+            marginTop: 8,
+          }}
+        >
+          Until payday on the 25th · 8 days
+        </p>
+        <p
+          style={{
+            fontSize: 13,
+            color: 'var(--text-tertiary)',
+            maxWidth: 440,
+            lineHeight: 1.6,
+          }}
+        >
+          Investor-aware safe-to-spend for employed people in the Netherlands.
+          Protects your planned investing. No surprises.
+        </p>
+      </div>
+
+      {/* CTAs */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          marginBottom: 48,
+        }}
+      >
+        <Link
+          href="/sign-in"
+          style={{
+            height: 44,
+            padding: '0 20px',
+            background: 'var(--accent-500)',
+            color: '#fff',
+            borderRadius: 8,
+            fontWeight: 600,
+            fontSize: 14,
+            display: 'inline-flex',
+            alignItems: 'center',
+            textDecoration: 'none',
+            letterSpacing: '-0.005em',
+          }}
+        >
+          Sign in
+        </Link>
+        <Link
           href="/beta"
           style={{
-            color: 'var(--color-text)',
+            height: 44,
+            padding: '0 20px',
+            background: 'var(--surface-2)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 8,
+            fontWeight: 600,
+            fontSize: 14,
+            display: 'inline-flex',
+            alignItems: 'center',
             textDecoration: 'none',
-            border: '1px solid var(--color-border)',
-            borderRadius: '999px',
-            padding: '10px 16px',
-            background: 'var(--color-surface)',
+            letterSpacing: '-0.005em',
           }}
         >
-          Beta access
-        </a>
-        <a
-          href="/privacy"
-          style={{
-            color: 'var(--color-text)',
-            textDecoration: 'none',
-            border: '1px solid var(--color-border)',
-            borderRadius: '999px',
-            padding: '10px 16px',
-            background: 'var(--color-surface)',
-          }}
-        >
-          Privacy
-        </a>
+          Request beta access
+        </Link>
       </div>
+
+      {/* Footer links */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 20,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}
+      >
+        {[
+          { label: 'Privacy', href: '/privacy' },
+          { label: 'Terms', href: '/terms' },
+          { label: 'Readiness', href: '/readiness' },
+        ].map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            style={{
+              fontSize: 12,
+              color: 'var(--text-tertiary)',
+              textDecoration: 'none',
+            }}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </div>
+
+      {/* Beta notice */}
+      <p
+        style={{
+          marginTop: 24,
+          fontSize: 11,
+          color: 'var(--text-disabled)',
+          letterSpacing: '-0.005em',
+        }}
+      >
+        Private beta · ING + Trading 212 · Netherlands only
+      </p>
     </main>
   );
 }

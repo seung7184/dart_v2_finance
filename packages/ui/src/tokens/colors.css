@@ -1,23 +1,130 @@
 :root {
-  /* Dark theme (primary) */
-  --color-bg:            #0f1117;
-  --color-sidebar:       #0a0c10;
-  --color-surface:       #161b22;
-  --color-surface-hover: #1c2330;
-  --color-border:        #21262d;
+  /* ── Legacy tokens (kept for backward compat) ─────────────────── */
+  --color-bg:            #0A0A0B;
+  --color-sidebar:       #0A0A0B;
+  --color-surface:       #111114;
+  --color-surface-hover: #17171C;
+  --color-border:        rgba(255,255,255,0.10);
+
+  --color-text:          #FFFFFF;
+  --color-text-muted:    #B4B4BE;
+  --color-text-faint:    #6C6C78;
+
+  --color-accent:        #3B82F6;
+  --color-accent-muted:  rgba(59,130,246,0.12);
+  --color-positive:      #6EE7B7;
+  --color-warning:       #E6C27A;
+  --color-safe:          #60A5FA;
+
+  /* ── Design system tokens ──────────────────────────────────────── */
+
+  /* Surface */
+  --surface-0: #0A0A0B;
+  --surface-1: #111114;
+  --surface-2: #17171C;
+  --surface-3: #1E1E24;
+  --surface-4: #26262E;
+
+  /* Border */
+  --border-subtle:  rgba(255,255,255,0.06);
+  --border-default: rgba(255,255,255,0.10);
+  --border-strong:  rgba(255,255,255,0.18);
 
   /* Text */
-  --color-text:          #e6edf3;
-  --color-text-muted:    #8b949e;
-  --color-text-faint:    #484f58;
+  --text-primary:   #FFFFFF;
+  --text-secondary: #B4B4BE;
+  --text-tertiary:  #6C6C78;
+  --text-disabled:  #44444C;
+  --text-inverse:   #0A0A0B;
+
+  /* Accent */
+  --accent-500: #3B82F6;
+  --accent-400: #60A5FA;
+  --accent-600: #2563EB;
+  --accent-tint: rgba(59,130,246,0.12);
+  --accent-ring: rgba(59,130,246,0.32);
 
   /* Semantic */
-  --color-accent:        #3b82f6;
-  --color-accent-muted:  #1d3a6e;
-  --color-positive:      #3fb950;
-  --color-warning:       #d29922;
-  --color-safe:          #58a6ff;   /* safe-to-spend number color */
+  --positive:       #6EE7B7;
+  --positive-tint:  rgba(110,231,183,0.10);
+  --negative:       #F2A8A8;
+  --negative-tint:  rgba(242,168,168,0.10);
+  --warning:        #E6C27A;
+  --warning-tint:   rgba(230,194,122,0.10);
+
+  /* Shadows */
+  --shadow-none: none;
+  --shadow-sm:   0 1px 2px rgba(0,0,0,0.30);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.40);
+  --shadow-lg:   0 16px 48px rgba(0,0,0,0.55);
+  --shadow-ring-focus: 0 0 0 3px var(--accent-ring);
+
+  /* Motion */
+  --duration-instant: 80ms;
+  --duration-fast:    140ms;
+  --duration-normal:  220ms;
+  --duration-slow:    360ms;
+  --ease-standard:  cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+
+  /* Radii */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-pill: 9999px;
+
+  /* Spacing */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+  --space-9:  48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
 
   /* Typography */
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, -apple-system, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  /* Type scale */
+  --text-display-2xl: 80px;
+  --text-display-xl:  64px;
+  --text-display-lg:  48px;
+  --text-display-md:  36px;
+  --text-display-sm:  28px;
+  --text-heading-lg:  22px;
+  --text-heading-md:  18px;
+  --text-heading-sm:  16px;
+  --text-body-lg:     17px;
+  --text-body:        15px;
+  --text-body-sm:     13px;
+  --text-caption:     12px;
+  --text-overline:    11px;
+
+  /* Line heights */
+  --lh-display: 1.02;
+  --lh-heading: 1.20;
+  --lh-body:    1.50;
+  --lh-tight:   1.10;
+
+  /* Font weights */
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;
+  --weight-bold:    700;
+
+  /* Letter spacing */
+  --tracking-display: -0.03em;
+  --tracking-heading: -0.02em;
+  --tracking-body:    -0.005em;
+  --tracking-overline: 0.08em;
+
+  color-scheme: dark;
 }
