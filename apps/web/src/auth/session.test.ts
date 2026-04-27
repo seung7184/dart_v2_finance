@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   fetchSupabaseUser,
+  getAuthenticatedUserIdFromCookieHeader,
+  getLocalDevUserId,
   getSupabaseAuthConfig,
   getSupabaseSessionFromCookieHeader,
+  LOCAL_DEV_USER_ID,
 } from './session';
 import {
   SUPABASE_ACCESS_TOKEN_COOKIE,
@@ -53,6 +56,26 @@ describe('getSupabaseAuthConfig', () => {
   });
 });
 
+describe('getLocalDevUserId', () => {
+  it('returns a stable local user id when running development without Supabase env', () => {
+    expect(getLocalDevUserId({ NODE_ENV: 'development' })).toBe(LOCAL_DEV_USER_ID);
+  });
+
+  it('does not bypass auth in production', () => {
+    expect(getLocalDevUserId({ NODE_ENV: 'production' })).toBeNull();
+  });
+
+  it('still returns a local user in development when Supabase env is configured', () => {
+    expect(
+      getLocalDevUserId({
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+        NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+        NODE_ENV: 'development',
+      }),
+    ).toBe(LOCAL_DEV_USER_ID);
+  });
+});
+
 describe('fetchSupabaseUser', () => {
   it('returns the authenticated user id from the Supabase auth user endpoint', async () => {
     const fetchImpl = vi.fn(async () => ({
@@ -100,5 +123,32 @@ describe('fetchSupabaseUser', () => {
         fetchImpl as unknown as typeof fetch,
       ),
     ).resolves.toBeNull();
+  });
+});
+
+describe('getAuthenticatedUserIdFromCookieHeader', () => {
+  it('uses the local dev user before Supabase cookies in development', async () => {
+    const originalEnv = process.env;
+    const fetchImpl = vi.fn();
+
+    vi.stubGlobal('process', {
+      ...process,
+      env: {
+        ...originalEnv,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+        NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+        NODE_ENV: 'development',
+      },
+    });
+
+    await expect(
+      getAuthenticatedUserIdFromCookieHeader(
+        `${SUPABASE_ACCESS_TOKEN_COOKIE}=access-123; ${SUPABASE_REFRESH_TOKEN_COOKIE}=refresh-123`,
+        fetchImpl as unknown as typeof fetch,
+      ),
+    ).resolves.toBe(LOCAL_DEV_USER_ID);
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

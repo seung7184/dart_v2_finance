@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import { formatEUR } from '@dart/core';
 import { accounts, db, transactions } from '@dart/db';
 import { requireAuthenticatedAppUser } from '@/auth/session';
+import { getTransactionsRuntimeState } from '@/transactions/runtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -201,6 +202,12 @@ async function getTransactionsForUser(userId: string): Promise<TransactionRow[]>
 
 export default async function TransactionsPage() {
   const userId = await requireAuthenticatedAppUser();
+  const runtimeState = getTransactionsRuntimeState(process.env);
+
+  if (!runtimeState.databaseConfigured) {
+    return <TransactionsUnavailable message={runtimeState.message} />;
+  }
+
   const rows = await getTransactionsForUser(userId);
   const unreviewedRows = rows.filter(
     (row) => row.reviewStatus === 'pending' || row.reviewStatus === 'needs_attention',
@@ -410,6 +417,69 @@ export default async function TransactionsPage() {
               Import more via Import CSV in the sidebar
             </span>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransactionsUnavailable({ message }: { message: string | null }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div
+        style={{
+          padding: '18px 32px',
+          borderBottom: '1px solid var(--border-subtle)',
+          background: 'var(--surface-0)',
+        }}
+      >
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 20,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+          }}
+        >
+          Transactions
+        </h1>
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+          Latest imported rows · ING + Trading 212
+        </div>
+      </div>
+
+      <div style={{ padding: '24px 32px 48px' }}>
+        <div
+          style={{
+            background: 'var(--surface-1)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 12,
+            padding: 24,
+            maxWidth: 640,
+          }}
+        >
+          <div style={{ ...badgeStyle('warning'), marginBottom: 14 }}>Database not connected</div>
+          <h2
+            style={{
+              margin: '0 0 8px',
+              fontSize: 18,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+            }}
+          >
+            Imported transactions need a live database.
+          </h2>
+          <p
+            style={{
+              margin: 0,
+              color: 'var(--text-secondary)',
+              fontSize: 13,
+              lineHeight: 1.6,
+            }}
+          >
+            {message ??
+              'Configure DATABASE_URL in the approved local environment path, then restart the web server.'}
+          </p>
         </div>
       </div>
     </div>

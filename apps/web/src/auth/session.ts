@@ -19,6 +19,8 @@ type SupabaseUser = {
   id: string;
 };
 
+export const LOCAL_DEV_USER_ID = '00000000-0000-4000-8000-000000000001';
+
 function parseCookieHeader(cookieHeader: string): Map<string, string> {
   return cookieHeader
     .split(';')
@@ -73,6 +75,14 @@ export function getSupabaseAuthConfig(
   };
 }
 
+export function getLocalDevUserId(env: Record<string, string | undefined>): string | null {
+  if (env.NODE_ENV === 'production') {
+    return null;
+  }
+
+  return LOCAL_DEV_USER_ID;
+}
+
 export async function fetchSupabaseUser(
   accessToken: string,
   config: SupabaseAuthConfig,
@@ -100,6 +110,11 @@ export async function getAuthenticatedUserIdFromCookieHeader(
   cookieHeader: string | null,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string | null> {
+  const localDevUserId = getLocalDevUserId(process.env);
+  if (localDevUserId) {
+    return localDevUserId;
+  }
+
   const session = getSupabaseSessionFromCookieHeader(cookieHeader);
   const config = getSupabaseAuthConfig(process.env);
 
@@ -114,6 +129,11 @@ export async function getAuthenticatedUserIdFromCookieHeader(
 export async function getAuthenticatedUserIdFromRequestCookies(
   fetchImpl: typeof fetch = fetch,
 ): Promise<string | null> {
+  const localDevUserId = getLocalDevUserId(process.env);
+  if (localDevUserId) {
+    return localDevUserId;
+  }
+
   const cookieStore = await cookies();
   const accessToken = cleanToken(cookieStore.get(SUPABASE_ACCESS_TOKEN_COOKIE)?.value);
   const refreshToken = cleanToken(cookieStore.get(SUPABASE_REFRESH_TOKEN_COOKIE)?.value);
