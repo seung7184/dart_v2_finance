@@ -30,7 +30,13 @@ export async function POST(request: Request) {
     const file = formData.get('file');
 
     if (!isSupportedBank(bank)) {
-      return NextResponse.json({ error: 'Unsupported bank selection.' }, { status: 400 });
+      return NextResponse.json(
+        {
+          code: 'BLOCKED_FORMAT',
+          error: 'Only ING and Trading 212 CSV files are supported in Phase 1.',
+        },
+        { status: 400 },
+      );
     }
 
     if (accountId.length === 0) {
@@ -78,6 +84,17 @@ export async function POST(request: Request) {
       context: 'api_import',
     });
     const message = error instanceof Error ? error.message : 'Unknown import error';
+    if (message.includes('CSV missing required columns')) {
+      return NextResponse.json(
+        {
+          code: 'BLOCKED_FORMAT',
+          error:
+            'This CSV does not match the selected provider. Phase 1 supports ING and Trading 212 only.',
+          detail: message,
+        },
+        { status: 400 },
+      );
+    }
     const status =
       message === 'ACCOUNT_NOT_FOUND' ? 404 : message === 'ACCOUNT_ACCESS_DENIED' ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

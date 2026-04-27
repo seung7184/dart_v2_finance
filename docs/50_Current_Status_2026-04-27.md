@@ -2,7 +2,36 @@
 
 **Last updated**: 2026-04-27  
 **Owner**: Seungjae  
-**Status**: Conditional GO — private beta with 3–5 users
+**Phase 1 status**: COMPLETE — Minimal Beta Level  
+**Private Beta status**: NOT YET GO — next step is Beta Readiness Hardening
+
+---
+
+## Phase 1 — COMPLETE
+
+The Phase 1 trusted product loop is complete at minimal beta level. A real authenticated user can:
+
+1. Sign in via magic link
+2. Import an ING or Trading 212 CSV
+3. Review imported transactions with warning treatment and confirm each row
+4. See the safe-to-spend number on `/dashboard` computed from real account data
+5. Drill down into the full assumption breakdown on `/why`
+
+**Phase 1 completion does not mean Private Beta is GO.** See the Beta Readiness Hardening section below.
+
+### Phase 1 Completed Capabilities
+
+- Real dashboard data — safe-to-spend computed from authenticated user accounts, transactions, and assumptions
+- Real why breakdown — full assumption drill-down sharing the same view model as `/dashboard`
+- Shared safe-to-spend view model between `/dashboard` and `/why`
+- Import preview and review states — parsed rows shown with review status
+- Needs-attention transaction treatment — warning tint, review badges, per-row Confirm buttons
+- Confirm action persistence — persists `review_status = reviewed`, updates `updatedAt`, requires auth, checks ownership
+- Auth and ownership checks on all `(app)` routes and confirm API
+- Blocked unsupported CSV handling — returns a clear message naming ING + Trading 212 as the only supported formats
+- Duplicate/skipped/error row reasons — shown next to each row where parser/dedup logic provides them
+- Staged processing checklist — shown during long imports
+- Validation passed: `pnpm tsc --noEmit`, `pnpm --dir apps/web test` (50 tests), `pnpm test` (100 tests total), `pnpm build`
 
 ---
 
@@ -18,25 +47,24 @@
 
 | Route | Status | Notes |
 |-------|--------|-------|
-| `/dashboard` | ✅ Live | Safe-to-spend hero, stat cards, next bills, quick links |
-| `/import` | ✅ Live | ING + T212 upload, auth-gated, account ownership check |
-| `/transactions` | ✅ Live | DB-backed, read-only, session-filtered |
-| `/why` | ✅ Live | Full assumption drill-down |
+| `/dashboard` | ✅ Live | Safe-to-spend hero computed from real user data, stat cards, next bills, quick links |
+| `/import` | ✅ Live | ING + T212 upload, auth-gated, account ownership check, review preview, blocked/skipped-row states, staged checklist |
+| `/transactions` | ✅ Live | DB-backed, session-filtered, needs-review treatment, per-row Confirm with ownership check |
+| `/why` | ✅ Live | Full real-data assumption drill-down, shared view model with `/dashboard` |
 | `/onboarding/*` | ✅ Live | Payday, income, investing, accounts steps |
 | `/settings` | ✅ Live | Theme toggle, account info, data section, legal links |
 | `/readiness` | ✅ Live | 5 groups with real status (Auth/Data/Telemetry/Legal/Ops) |
 | `/privacy` | ✅ Live | EU/GDPR pills, 4 stat cards, prose sections |
 | `/terms` | ✅ Live | Plain-language summary, 7 sections |
 | `/beta` | ✅ Live | Signup form, writes to `beta_signups` table |
-| `/sign-in` | ✅ Live | Magic link send only — full state machine not yet implemented |
-| `/billing` | ✅ Scaffolded | Stripe + RevenueCat wired, not live for beta |
+| `/sign-in` | ✅ Live | Magic link send — full callback state machine not yet implemented |
+| `/billing` | ✅ Scaffolded | Stripe + RevenueCat wired, intentionally not live for beta |
 
 ### Design System
 - Dark mode (default) + light mode with localStorage persistence
 - Theme flash prevention via inline `<script>` in `<head>` + `suppressHydrationWarning`
 - All CSS custom properties in `packages/ui/src/tokens/colors.css`
-- Sidebar: dark surface with active-link detection (client component `SidebarNav`)
-- Full token set: surfaces, borders, text, accent, semantic, spacing, radius, motion
+- Sidebar with active-link detection (client component `SidebarNav`)
 
 ### Auth
 - Supabase magic link flow wired end-to-end
@@ -57,58 +85,38 @@
 
 ---
 
-## What Is Still Missing (Before Beta)
+## What Remains Outside Phase 1
 
-### Must Do — Auth State Machine
-The sign-in page only handles idle/loading/sent states. The design specifies 6 full states that need wiring to real Supabase responses:
+These items are explicitly deferred and do not block Phase 1 completion:
 
-| State | Route | Status |
-|-------|-------|--------|
-| Sending (disabled button + spinner) | `/sign-in` | Partial |
-| Magic link sent (email card + resend countdown) | `/sign-in` | Partial |
-| Callback processing (3-step checklist) | `/auth/callback/processing` | ❌ Missing |
-| Callback success (auto-redirect + Continue) | `/auth/callback/success` | ❌ Missing |
-| Callback error (reason + ref code + two CTAs) | `/auth/callback/error` | ❌ Missing |
-| Rate limit (countdown + inbox framing) | `/auth/callback/rate-limit` | ❌ Missing |
-
-### Must Do — Transactions
-- Needs-review row treatment (4% warning tint background + per-row Confirm button)
-- Read-only beta notice banner already exists but not styled per final design
-
-### Must Do — Import Edge States
-- `/import/blocked` — wrong format screen
-- `/import/duplicates` — per-row skip reason
-- `/import/processing` — progress checklist for long imports
-
-### Nice to Have
-- Local-only mode toggle in Settings
-- Auth callback processing checklist (vs bare spinner)
-- Per-row Confirm in needs-review transactions
-
-### Owner Decision Required (Not Code)
-- [ ] Apply `beta_signups` migration to real Supabase database
-- [ ] Define invite/review workflow (Supabase Table Editor, Drizzle Studio, or other)
-- [ ] Confirm PostHog dashboard ownership — verify events arrive
-- [ ] Confirm Sentry dashboard ownership — verify exceptions arrive
-- [ ] Replace `TODO(owner)` placeholders in `/privacy` and `/terms` with real legal details
+- Full inline category/intent editing during transaction review
+- Rule creation (auto-classification rules engine)
+- Auth callback state machine polish (processing, success, error, rate-limit routes)
+- Legal placeholders — `TODO(owner)` copy in `/privacy` and `/terms`
+- Observability dashboard verification (keys configured, ingest not confirmed)
+- Mobile (Expo — not yet in beta)
+- Billing activation
+- Bank sync / open banking
+- AI / chat surface
+- Extra CSV providers (Rabobank, DeGiro, others)
 
 ---
 
-## How to Run
+## Private Beta Is Not Automatically GO
 
-```bash
-# Dev server (always use this, not pnpm dev)
-pnpm web:dev
-# → http://localhost:3000
+Phase 1 completion proves the core product loop works. It does not mean the app is ready for real users.
 
-# Type check
-pnpm tsc --noEmit
+**Next workstream: Beta Readiness Hardening**
 
-# Build
-pnpm build
-```
+See `docs/60_Beta_Readiness_Hardening_Prompt.md` for the exact prompt to use.
 
-**Common mistake**: running `pnpm dev` from the monorepo root causes stale `.next` chunk errors. Always use `pnpm web:dev`.
+Beta hardening covers:
+- Auth callback state machine (4 missing routes)
+- Observability ingest verification
+- User-facing error copy quality
+- Empty/error/loading state polish
+- Import/review/confirm end-to-end UX pass
+- Legal `TODO(owner)` placeholders resolved by owner
 
 ---
 
@@ -117,14 +125,27 @@ pnpm build
 | Area | Status |
 |------|--------|
 | Core engine + CSV parsers | ✅ GO |
-| Web import + transactions + why | ✅ GO |
+| Web import + review loop | ✅ GO |
+| Transactions confirm flow | ✅ GO |
+| Dashboard + why (real data) | ✅ GO |
 | Auth (basic flow) | ✅ GO |
 | Design system + light/dark mode | ✅ GO |
-| Observability (keys configured) | ⚠️ Partial — ingest unverified |
-| Auth state machine (6 states) | ❌ Incomplete |
-| Import edge states | ❌ Incomplete |
+| Observability keys configured | ⚠️ Partial — ingest unverified |
+| Auth callback state machine | ❌ 4 routes missing |
 | Legal copy | ❌ TODO(owner) placeholders remain |
 | Billing | ⏸ Intentionally off for beta |
 | beta_signups migration on real DB | ⏸ Owner action required |
 
-**Recommendation**: Conditional GO for first cohort of 3–5 trusted users on the basic sign-in flow. Full public beta blocked on auth state machine + legal copy.
+**Recommendation**: Phase 1 COMPLETE. Private Beta requires Beta Readiness Hardening pass before GO.
+
+---
+
+## How to Run
+
+```bash
+pnpm web:dev          # always use this — runs on localhost:3000
+pnpm tsc --noEmit     # must pass before any commit
+pnpm build            # full production build
+```
+
+Do **not** use `pnpm dev` from the monorepo root — causes stale `.next` chunk errors.

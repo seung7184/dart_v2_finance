@@ -21,7 +21,7 @@ export function createImportRepository(database: QueryableDatabase = db): Import
           duplicateCount: input.duplicateCount,
           importedCount: input.importedCount,
           importCompletedAt: input.importCompletedAt,
-          reviewStatus: input.reviewStatus,
+          reviewStatus: input.reviewStatus as NonNullable<TransactionInsert['reviewStatus']>,
           rowCount: input.rowCount,
           updatedAt: input.importCompletedAt,
         })

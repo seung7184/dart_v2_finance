@@ -10,6 +10,13 @@ type PreviewRow = {
   date: string;
   description: string;
   externalId: string;
+  intentHint: string | null;
+  reviewStatus: 'pending' | 'needs_attention';
+};
+type SkippedRow = {
+  reason: string;
+  rowIndex: number;
+  status: 'duplicate' | 'error';
 };
 
 const REQUIRED_FIELDS: Record<SupportedBank, string[]> = {
@@ -30,6 +37,7 @@ export default function ImportPage() {
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
+  const [skippedRows, setSkippedRows] = useState<SkippedRow[]>([]);
   const [rowCount, setRowCount] = useState(0);
   const [fileName, setFileName] = useState('');
   const [importNotice, setImportNotice] = useState('');
@@ -47,7 +55,13 @@ export default function ImportPage() {
     const response = await fetch('/api/import', { method: 'POST', body: formData });
     const payload = (await response.json()) as Record<string, unknown>;
     if (!response.ok) {
-      throw new Error(typeof payload.error === 'string' ? payload.error : 'Import request failed.');
+      const errorText =
+        payload.code === 'BLOCKED_FORMAT'
+          ? `${String(payload.error)} ${typeof payload.detail === 'string' ? payload.detail : ''}`.trim()
+          : typeof payload.error === 'string'
+          ? payload.error
+          : 'Import request failed.';
+      throw new Error(errorText);
     }
     return payload;
   }
@@ -66,12 +80,14 @@ export default function ImportPage() {
       setPreviewRows((payload.previewRows as PreviewRow[]) ?? []);
       setDuplicateCount(typeof payload.duplicateCount === 'number' ? payload.duplicateCount : 0);
       setErrorCount(typeof payload.errorCount === 'number' ? payload.errorCount : 0);
+      setSkippedRows((payload.skippedRows as SkippedRow[]) ?? []);
       setRowCount(typeof payload.rowCount === 'number' ? payload.rowCount : 0);
       setFileName(file.name);
     } catch (error) {
       setPreviewRows([]);
       setDuplicateCount(0);
       setErrorCount(0);
+      setSkippedRows([]);
       setRowCount(0);
       trackException(error, { bank, context: 'csv_import_preview' });
       setErrorMessage(error instanceof Error ? error.message : 'Preview failed.');
@@ -96,6 +112,7 @@ export default function ImportPage() {
       const alreadyImported = payload.alreadyImported === true;
       setDuplicateCount(returnedDuplicateCount);
       setErrorCount(returnedErrorCount);
+      setSkippedRows((payload.skippedRows as SkippedRow[]) ?? []);
       trackEvent('csv_import_completed', {
         alreadyImported, bank,
         duplicateCount: returnedDuplicateCount,
@@ -108,7 +125,7 @@ export default function ImportPage() {
       setImportNotice(
         alreadyImported
           ? `File already imported. Reused batch ${String(payload.batchId)}.`
-          : `Imported ${importedCount} transactions. ${returnedDuplicateCount} duplicates skipped. ${returnedErrorCount} rows failed validation.`,
+          : `Imported ${importedCount} transactions for review. ${returnedDuplicateCount} duplicates skipped. ${returnedErrorCount} rows failed validation.`,
       );
     } catch (error) {
       setImportNotice('');
@@ -344,11 +361,66 @@ export default function ImportPage() {
                   ? 'Parsing preview…'
                   : fileName
                   ? fileName
-                  : `Required columns: ${REQUIRED_FIELDS[bank].join(', ')}`}
+                  : `Phase 1 supports ING and Trading 212 only · Required: ${REQUIRED_FIELDS[bank].join(', ')}`}
               </p>
             </div>
           </div>
         </div>
+
+        {isImporting && (
+          <div
+            style={{
+              background: 'var(--surface-1)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 12,
+              padding: '18px 20px',
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-tertiary)',
+              }}
+            >
+              Processing import
+            </div>
+            {['File received', 'Parsing CSV', 'Checking duplicates', 'Preparing review'].map((step) => (
+              <div
+                key={step}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  color: 'var(--text-secondary)',
+                  fontSize: 13,
+                }}
+              >
+                <span
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 999,
+                    background: 'var(--accent-tint)',
+                    color: 'var(--accent-400)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}
+                >
+                  ✓
+                </span>
+                {step}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Column mapping + preview — shown after file upload */}
         {(selectedFile || previewRows.length > 0) && (
@@ -428,7 +500,7 @@ export default function ImportPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        {['Date', 'Description', 'Amount'].map((h) => (
+                        {['Date', 'Description', 'Amount', 'Review'].map((h) => (
                           <th
                             key={h}
                             style={{
@@ -487,6 +559,22 @@ export default function ImportPage() {
                           >
                             {formatEUR(row.amountCents)}
                           </td>
+                          <td
+                            style={{
+                              padding: '8px 8px',
+                              fontSize: 12,
+                              color:
+                                row.reviewStatus === 'needs_attention'
+                                  ? 'var(--warning)'
+                                  : 'var(--accent-400)',
+                              borderBottom: '1px solid var(--border-subtle)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {row.reviewStatus === 'needs_attention'
+                              ? 'Needs review'
+                              : row.intentHint ?? 'Ready'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -494,6 +582,55 @@ export default function ImportPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {skippedRows.length > 0 && (
+          <div
+            style={{
+              background: 'var(--surface-1)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 12,
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--text-tertiary)',
+              }}
+            >
+              Skipped or blocked rows
+            </div>
+            {skippedRows.slice(0, 8).map((row) => (
+              <div
+                key={`${row.status}-${row.rowIndex}-${row.reason}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '80px 120px 1fr',
+                  gap: 12,
+                  alignItems: 'center',
+                  padding: '10px 0',
+                  borderTop: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                  Row {row.rowIndex}
+                </span>
+                <span style={{ color: row.status === 'duplicate' ? 'var(--accent-400)' : 'var(--warning)' }}>
+                  {row.status === 'duplicate' ? 'Duplicate' : 'Blocked'}
+                </span>
+                <span>{row.reason}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -535,13 +672,21 @@ export default function ImportPage() {
                   fontSize: 13,
                   color: 'var(--positive)',
                   background: 'var(--positive-tint)',
-                  border: '1px solid rgba(110,231,183,0.20)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: 8,
                   padding: '8px 12px',
                   marginTop: 4,
                 }}
               >
                 {importNotice}
+                {importNotice.includes('transactions for review') && (
+                  <>
+                    {' '}
+                    <a href="/transactions" style={{ color: 'var(--accent-400)', fontWeight: 600 }}>
+                      Review transactions →
+                    </a>
+                  </>
+                )}
               </p>
             )}
             {errorMessage && !errorMessage.includes('Account ID') && (
@@ -550,7 +695,7 @@ export default function ImportPage() {
                   fontSize: 13,
                   color: 'var(--warning)',
                   background: 'var(--warning-tint)',
-                  border: '1px solid rgba(230,194,122,0.24)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: 8,
                   padding: '8px 12px',
                   marginTop: 4,
@@ -568,7 +713,7 @@ export default function ImportPage() {
               height: 44,
               padding: '0 20px',
               background: isImporting || !selectedFile ? 'var(--surface-3)' : 'var(--accent-500)',
-              color: isImporting || !selectedFile ? 'var(--text-disabled)' : '#fff',
+              color: isImporting || !selectedFile ? 'var(--text-disabled)' : 'var(--text-inverse)',
               border: 'none',
               borderRadius: 8,
               fontFamily: 'var(--font-sans)',

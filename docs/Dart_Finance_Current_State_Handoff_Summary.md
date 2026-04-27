@@ -2,7 +2,9 @@
 
 **Last updated**: 2026-04-27  
 **Owner**: Seungjae  
-**See also**: `50_Current_Status_2026-04-27.md` for full go/no-go detail
+**Phase 1 status**: COMPLETE — Minimal Beta Level  
+**See also**: `50_Current_Status_2026-04-27.md` for full go/no-go detail  
+**Next step**: Beta Readiness Hardening — see `60_Beta_Readiness_Hardening_Prompt.md`
 
 ---
 
@@ -27,7 +29,7 @@ apps/mobile/           Expo — not yet in beta
 Safe-to-spend engine is implemented and tested. ING CSV (semicolon, nl-NL, DD-MM-YYYY) and Trading 212 CSV both parse correctly. 393-row smoke test: 0 errors, 0 duplicates. All amounts are INTEGER cents.
 
 **Web app**  
-All core routes are live: dashboard, import, transactions (DB-backed, auth-gated), why, onboarding, settings, readiness, privacy, terms, beta signup.
+All core routes are live: dashboard, import, transactions (DB-backed, auth-gated), why, onboarding, settings, readiness, privacy, terms, beta signup. Dashboard and why now share the real authenticated safe-to-spend view model. Import review shows parsed rows, blocked/skipped-row reasons, and a processing checklist. Transactions show needs-review rows and support per-row confirm.
 
 **Auth**  
 Magic link flow works end-to-end. Real Supabase env values are configured. Callback URL is registered. All `(app)` routes require authentication.
@@ -47,7 +49,7 @@ Stripe and RevenueCat scaffolds are wired but intentionally inactive. Beta is fr
 
 **Auth state machine** — only basic sign-in exists. The callback states (processing, success, error, rate-limit) are not implemented.
 
-**Import edge states** — blocked format, duplicate skip reasons, and long-import progress screens are not implemented.
+**Review editing depth** — Phase 1 supports confirming imported transactions as reviewed, but full inline category/intent editing is still deferred.
 
 **Legal** — `TODO(owner)` placeholders remain in `/privacy` and `/terms`.
 

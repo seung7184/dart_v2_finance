@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   executeImport,
   getImportPreviewForUser,
+  getImportPreview,
   type ImportBatchRecord,
   type ImportRepository,
 } from './service';
@@ -206,8 +207,26 @@ describe('executeImport', () => {
       currency: 'EUR',
       intent: 'unclassified',
       rawDescription: 'Coffee Company',
+      reviewStatus: 'needs_attention',
       source: 'ing_csv',
     });
+    expect(result.skippedRows).toEqual([
+      {
+        reason: 'duplicate_in_file',
+        rowIndex: 4,
+        status: 'duplicate',
+      },
+      {
+        reason: 'Invalid time value',
+        rowIndex: 5,
+        status: 'error',
+      },
+      {
+        reason: 'duplicate_in_database',
+        rowIndex: 2,
+        status: 'duplicate',
+      },
+    ]);
   });
 
   it('deduplicates Trading 212 imports by external ID and preserves cents', async () => {
@@ -239,8 +258,42 @@ describe('executeImport', () => {
       amount: 12567,
       externalId: 'new-id',
       intent: 'investment_contribution',
+      reviewStatus: 'pending',
       source: 't212_csv',
     });
+  });
+
+  it('shows preview review status and skipped-row reasons before import', () => {
+    const csvContent = [
+      'Datum;Naam / Omschrijving;Rekening;Tegenrekening;Code;Af Bij;Bedrag (EUR);Mutatiesoort;Mededelingen',
+      '02-04-2026;Coffee Company;;;;Af;3,50;;',
+      '02-04-2026;Coffee Company;;;;Af;3,50;;',
+      'bad-date;Broken Row;;;;Af;5,00;;',
+    ].join('\n');
+
+    const preview = getImportPreview({
+      accountId: 'account-ing',
+      bank: 'ING',
+      csvContent,
+    });
+
+    expect(preview.previewRows[0]).toMatchObject({
+      description: 'Coffee Company',
+      intentHint: null,
+      reviewStatus: 'needs_attention',
+    });
+    expect(preview.skippedRows).toEqual([
+      {
+        reason: 'duplicate_in_file',
+        rowIndex: 3,
+        status: 'duplicate',
+      },
+      {
+        reason: 'Invalid time value',
+        rowIndex: 4,
+        status: 'error',
+      },
+    ]);
   });
 
   it('accepts Trading 212 exports that label currency as Currency (Total)', async () => {

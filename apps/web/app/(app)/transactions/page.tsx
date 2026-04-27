@@ -39,7 +39,7 @@ type TransactionRow = {
   source: string;
 };
 
-const GRID = '104px minmax(132px, 0.8fr) minmax(220px, 1.3fr) 124px 148px 132px';
+const GRID = '104px minmax(132px, 0.8fr) minmax(220px, 1.3fr) 124px 136px 124px 104px';
 
 const INTENT_LABELS: Record<TransactionIntent, string> = {
   living_expense: 'Living',
@@ -148,6 +148,10 @@ function statusTone(reviewStatus: ReviewStatus): 'neutral' | 'positive' | 'warni
 }
 
 function statusLabel(reviewStatus: ReviewStatus): string {
+  if (reviewStatus === 'pending') {
+    return 'Ready to confirm';
+  }
+
   if (reviewStatus === 'needs_attention') {
     return 'Needs review';
   }
@@ -157,6 +161,32 @@ function statusLabel(reviewStatus: ReviewStatus): string {
   }
 
   return reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1);
+}
+
+function ConfirmReviewButton({ transactionId }: { transactionId: string }) {
+  return (
+    <form action="/api/transactions/confirm" method="post">
+      <input type="hidden" name="transactionId" value={transactionId} />
+      <button
+        type="submit"
+        style={{
+          height: 30,
+          padding: '0 10px',
+          borderRadius: 6,
+          border: '1px solid var(--border-default)',
+          background: 'var(--surface-2)',
+          color: 'var(--text-primary)',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Confirm
+      </button>
+    </form>
+  );
 }
 
 function Amount({ amount, currency }: { amount: number; currency: string }) {
@@ -256,7 +286,7 @@ export default async function TransactionsPage() {
               gap: 12,
               padding: '12px 16px',
               background: 'var(--warning-tint)',
-              border: '1px solid rgba(230,194,122,0.24)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: 12,
               color: 'var(--warning)',
               fontSize: 13,
@@ -267,7 +297,7 @@ export default async function TransactionsPage() {
                 width: 22,
                 height: 22,
                 borderRadius: 6,
-                background: 'rgba(230,194,122,0.18)',
+                background: 'var(--surface-1)',
                 display: 'grid',
                 placeItems: 'center',
                 fontWeight: 700,
@@ -305,7 +335,7 @@ export default async function TransactionsPage() {
               borderBottom: '1px solid var(--border-subtle)',
             }}
           >
-            {['Date', 'Account', 'Description', 'Amount', 'Intent', 'Status'].map((heading) => (
+            {['Date', 'Account', 'Description', 'Amount', 'Intent', 'Status', 'Action'].map((heading) => (
               <div
                 key={heading}
                 style={{
@@ -347,7 +377,7 @@ export default async function TransactionsPage() {
                     gap: 16,
                     padding: '12px 20px',
                     borderTop: '1px solid var(--border-subtle)',
-                    background: needsReview ? 'rgba(230,194,122,0.04)' : 'transparent',
+                    background: needsReview ? 'var(--warning-tint)' : 'transparent',
                   }}
                 >
                   <div
@@ -393,6 +423,13 @@ export default async function TransactionsPage() {
                     <span style={badgeStyle(statusTone(row.reviewStatus))}>
                       {statusLabel(row.reviewStatus)}
                     </span>
+                  </div>
+                  <div>
+                    {needsReview ? (
+                      <ConfirmReviewButton transactionId={row.id} />
+                    ) : (
+                      <span style={{ color: 'var(--text-disabled)', fontSize: 12 }}>Trusted</span>
+                    )}
                   </div>
                 </div>
               );

@@ -13,6 +13,14 @@ export type ImportPreviewRow = {
   description: string;
   amountCents: number;
   externalId: string;
+  intentHint: string | null;
+  reviewStatus: 'pending' | 'needs_attention';
+};
+
+export type ImportSkippedRow = {
+  reason: string;
+  rowIndex: number;
+  status: 'duplicate' | 'error';
 };
 
 export type ImportPreview = {
@@ -20,6 +28,7 @@ export type ImportPreview = {
   errorCount: number;
   previewRows: ImportPreviewRow[];
   rowCount: number;
+  skippedRows: ImportSkippedRow[];
 };
 
 export type ImportExecutionResult = {
@@ -29,6 +38,7 @@ export type ImportExecutionResult = {
   errorCount: number;
   importedCount: number;
   rowCount: number;
+  skippedRows: ImportSkippedRow[];
 };
 
 export type ImportAccount = {
@@ -80,7 +90,7 @@ export type ImportRepository = {
     intent: string;
     occurredAt: Date;
     rawDescription: string;
-    reviewStatus: 'pending';
+    reviewStatus: 'pending' | 'needs_attention';
     source: 'ing_csv' | 't212_csv';
     userId: string;
   }): Promise<{ id: string }>;
@@ -135,6 +145,10 @@ function normalizeIntent(intentHint: string | null): string {
   return 'unclassified';
 }
 
+function getInitialReviewStatus(intent: string): 'pending' | 'needs_attention' {
+  return intent === 'unclassified' ? 'needs_attention' : 'pending';
+}
+
 function hashFileContent(csvContent: string): string {
   return createHash('sha256').update(csvContent).digest('hex');
 }
@@ -144,12 +158,30 @@ function totalRowCount(parseResult: ParseResult): number {
 }
 
 function toPreviewRow(row: ParsedRow): ImportPreviewRow {
+  const intent = normalizeIntent(row.intent_hint);
   return {
     date: row.occurred_at.toISOString(),
     description: row.raw_description,
     amountCents: row.amount_cents,
     externalId: row.external_id ?? '',
+    intentHint: row.intent_hint,
+    reviewStatus: getInitialReviewStatus(intent),
   };
+}
+
+function skippedRowsFromParseResult(parseResult: ParseResult): ImportSkippedRow[] {
+  return [
+    ...parseResult.duplicates.map((duplicate) => ({
+      reason: duplicate.reason,
+      rowIndex: duplicate.row_index,
+      status: 'duplicate' as const,
+    })),
+    ...parseResult.errors.map((error) => ({
+      reason: error.error,
+      rowIndex: error.row_index,
+      status: 'error' as const,
+    })),
+  ];
 }
 
 export function getImportPreview(input: {
@@ -164,6 +196,7 @@ export function getImportPreview(input: {
     errorCount: parseResult.errors.length,
     previewRows: parseResult.rows.slice(0, 5).map(toPreviewRow),
     rowCount: totalRowCount(parseResult),
+    skippedRows: skippedRowsFromParseResult(parseResult),
   };
 }
 
@@ -234,6 +267,7 @@ export async function executeImport(
       errorCount: 0,
       importedCount: existingBatch.importedCount ?? 0,
       rowCount: existingBatch.rowCount ?? rowCount,
+      skippedRows: [],
     };
   }
 
@@ -251,6 +285,7 @@ export async function executeImport(
 
   let importedCount = 0;
   let duplicateCount = parseResult.duplicate_count;
+  const skippedRows = skippedRowsFromParseResult(parseResult);
 
   for (const duplicate of parseResult.duplicates) {
     await repository.createImportRow({
@@ -297,19 +332,25 @@ export async function executeImport(
         transactionId: existingTransaction.id,
         userId: account.userId,
       });
+      skippedRows.push({
+        reason: 'duplicate_in_database',
+        rowIndex: row.row_index,
+        status: 'duplicate',
+      });
       continue;
     }
 
+    const intent = normalizeIntent(row.intent_hint);
     const createdTransaction = await repository.createTransaction({
       accountId: input.accountId,
       amount: row.amount_cents,
       currency: row.currency,
       externalId: row.external_id,
       importBatchId: createdBatch.id,
-      intent: normalizeIntent(row.intent_hint),
+      intent,
       occurredAt: row.occurred_at,
       rawDescription: row.raw_description,
-      reviewStatus: 'pending',
+      reviewStatus: getInitialReviewStatus(intent),
       source: row.source,
       userId: account.userId,
     });
@@ -345,5 +386,6 @@ export async function executeImport(
     errorCount: parseResult.errors.length,
     importedCount,
     rowCount,
+    skippedRows,
   };
 }
