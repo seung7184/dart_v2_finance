@@ -1,113 +1,82 @@
-# Dart Finance — Current State Handoff Summary
+# Dart Finance — Handoff Summary
 
-## 1. Architecture / Product Scope Completed
-### Phase 1 (Web MVP Core)
-Implemented and validated:
-- Safe-to-spend engine
-- Supabase connection readiness
-- Web onboarding flow
-- ING CSV parser
-- Trading212 CSV parser
-- Web CSV import UI
-- Transactions UI
-- “Why This Number?” explanation flow
+**Last updated**: 2026-04-27  
+**Owner**: Seungjae  
+**See also**: `50_Current_Status_2026-04-27.md` for full go/no-go detail
 
-Validation:
-- pnpm test passed
-- pnpm tsc --noEmit passed
-- pnpm build passed
+---
 
-## 2. Phase 2 (Mobile V1)
-Implemented:
-- Home tab
-- Quick Add (local-state only, no write layer)
-- Read-only transactions tab
-- Read-only recurring bills tab
+## Architecture
 
-Constraints:
-- integer cents only
-- no mobile write layer
-- no scope expansion
+Turborepo + pnpm monorepo. Web is Next.js 15 App Router. Mobile is Expo (not yet shipping). Supabase + Drizzle ORM for data. CSS custom properties for all design tokens.
 
-## 3. Phase 3 (Beta Readiness)
-Auth / RLS:
-- deny-by-default protected routes
-- auth start + callback routes
-- RLS SQL scaffolds
-- ownership checks in import route
+```
+packages/core/         safe-to-spend engine, zero UI/DB imports
+packages/db/           Drizzle schema only
+packages/ui/           shared components + tokens
+packages/csv-parsers/  ING + T212 parsers only
+apps/web/              Next.js 15 — primary shipping surface
+apps/mobile/           Expo — not yet in beta
+```
 
-Fixes:
-- options.email_redirect_to
-- root-token fallback
-- better auth-start error surfacing
+---
 
-## 4. Observability
-Implemented:
-- PostHog event hooks
-- Sentry client/server paths
-- bootstrap no-op fallback
+## What Is Complete
 
-## 5. Billing (Non-Live)
-Implemented scaffolds only:
-- Stripe monthly + annual env contract
-- RevenueCat Apple + Google readiness
-- billing intentionally off for beta
+**Engine + parsers**  
+Safe-to-spend engine is implemented and tested. ING CSV (semicolon, nl-NL, DD-MM-YYYY) and Trading 212 CSV both parse correctly. 393-row smoke test: 0 errors, 0 duplicates. All amounts are INTEGER cents.
 
-## 6. Import / Data
-Trading212 parser bug fixed:
-- Currency (Total) supported
+**Web app**  
+All core routes are live: dashboard, import, transactions (DB-backed, auth-gated), why, onboarding, settings, readiness, privacy, terms, beta signup.
 
-Exact CSV smoke:
-- 393 imported rows
-- 0 parser errors
-- 0 duplicates
+**Auth**  
+Magic link flow works end-to-end. Real Supabase env values are configured. Callback URL is registered. All `(app)` routes require authentication.
 
-120-second timeout likely environment/test-harness related, not parser performance.
+**Design system**  
+Dark mode (default) + light mode. Theme persists via localStorage. No flash on load. Full sidebar with active-link detection. All colors via CSS custom properties — no hardcoded hex in components.
 
-## 7. Transactions View Upgrade
-Now:
-- DB-backed
-- authenticated
-- read-only
-- filters by transactions.userId = current session user
+**Observability**  
+PostHog and Sentry keys are configured. Lightweight bootstrap shims installed. Ingest verification still required.
 
-## 8. Dev / Runtime Stability Fix
-Resolved:
-Cannot find module './15.js'
+**Billing**  
+Stripe and RevenueCat scaffolds are wired but intentionally inactive. Beta is free.
 
-Cause:
-- build run while next dev active
-- stale .next chunk mismatch
+---
 
-Use:
-pnpm web:dev
+## What Is Incomplete
 
-NOT:
-pnpm dev
+**Auth state machine** — only basic sign-in exists. The callback states (processing, success, error, rate-limit) are not implemented.
 
-## Remaining Critical Blockers
-1. Real authenticated user/account smoke still missing
-2. Supabase auth rate limit:
-429 over_email_send_rate_limit
-3. Provider dashboard confirmation still manual
-4. Legal placeholders unresolved
+**Import edge states** — blocked format, duplicate skip reasons, and long-import progress screens are not implemented.
 
-## Current Recommendation
-NO-GO for private beta today
+**Legal** — `TODO(owner)` placeholders remain in `/privacy` and `/terms`.
 
-Blocked by:
-- real auth/account smoke
-- provider verification
-- legal placeholders
+**Observability** — keys are configured but no one has verified events arrive in PostHog/Sentry dashboards.
 
-## What I want Claude to improve
-1. Auth flow UX simplification
-2. Transactions page design
-3. Import flow robustness
-4. Beta launch risk review
-5. Architecture simplification
+**Owner actions pending**:
+- Apply `beta_signups` migration to real Supabase database
+- Define invite/review workflow
+- Replace legal placeholders
 
-## Summary
-Core product + mobile + auth + observability + import + DB-backed transactions are largely implemented.
+---
 
-Remaining blockers are mostly operational, not major missing code.
+## Dev Commands
+
+```bash
+pnpm web:dev          # always use this — runs on localhost:3000
+pnpm tsc --noEmit     # must pass before any commit
+pnpm build            # full production build
+```
+
+Do **not** use `pnpm dev` from the monorepo root — causes stale `.next` chunk errors.
+
+---
+
+## Key Constraints (Never Change Without Decision Log)
+
+- Amounts: INTEGER cents only, never float
+- CSS: custom properties only, never hardcode hex
+- CSV: ING + T212 only in V1
+- Auth: Supabase magic link only
+- Imports: absolute `@/` paths only, no `../../` chains
+- TypeScript: strict mode, no `any`, no `@ts-ignore` without comment

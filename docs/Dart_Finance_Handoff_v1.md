@@ -1,5 +1,7 @@
 # Dart Finance — AI Agent Handoff Document
 
+> **SUPERSEDED** — This was the original Korean-language handoff as of 2026-04-22. For current status see `50_Current_Status_2026-04-27.md` and `Dart_Finance_Current_State_Handoff_Summary.md`. Kept for historical reference.
+
 **Version**: 1.0 · 2026-04-22
 **Owner**: Seungjae
 **Purpose**: ChatGPT / Codex 인계 문서 — 지금까지 완료된 것, 남은 것, 규칙 전체

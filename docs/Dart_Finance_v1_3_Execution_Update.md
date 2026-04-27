@@ -1,8 +1,10 @@
 # Dart Finance — Execution Update v1.3
 
+> **SUPERSEDED** — This document captured early decisions as of 2026-04-22. For current status see `50_Current_Status_2026-04-27.md`. Kept for historical reference.
+
 Version 1.3 · 2026-04-22  
 Owner: Seungjae  
-Status: Pre-MVP execution lock
+Status: Pre-MVP execution lock (historical)
 
 ---
 

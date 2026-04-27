@@ -1,121 +1,117 @@
 # Beta Readiness Verification Checklist
 
-Version 1.0 · 2026-04-22
-Owner: Seungjae
-Status: Verification checklist for private beta go/no-go
+**Last updated**: 2026-04-27  
+**Owner**: Seungjae  
+**Purpose**: End-to-end verification of the private beta experience
 
-## Purpose
+✅ = verified | [ ] = still needs verification | ❌ = known gap
 
-Use this checklist to verify the end-to-end private beta experience across the current V1 web-first flow and confirm what still blocks launch.
+---
 
-## 1. Wiring Audit Snapshot
+## 1. Environment and Build
 
-### Auth
+- ✅ `pnpm tsc --noEmit` passes (zero errors)
+- ✅ `pnpm build` passes
+- ✅ `pnpm web:dev` starts on `localhost:3000`
+- ✅ Supabase env values configured (URL, anon key, callback URL registered)
+- ✅ PostHog key configured
+- ✅ Sentry DSN configured
 
-- Current state: app routes require valid Supabase access/refresh token cookies and resolve the user through the Supabase Auth `/user` endpoint.
-- Current state: web auth start uses a Supabase-compatible magic link request and `/auth/callback` token handoff.
-- Verification note: start local web auth checks with `pnpm run web:dev` so the app runs on `http://localhost:3000`.
-- Blocker: a real Supabase project, anon key, and registered callback URL are still required.
+---
 
-### Observability
+## 2. Auth Flow
 
-- Current state: the app shell installs lightweight env-aware `window.posthog.capture` and `window.Sentry.captureException` shims when public keys/DSNs exist.
-- Current state: server exceptions fall back to direct Sentry envelope delivery when `SENTRY_DSN` or `NEXT_PUBLIC_SENTRY_DSN` is configured.
-- Blocker: owner env values still need to be provided and real ingest must be verified in the target beta environment.
+- ✅ `/sign-in` renders and accepts email input
+- ✅ Magic link email is sent via Supabase
+- ✅ `/auth/callback` receives and exchanges tokens
+- ✅ Authenticated session correctly gates all `(app)` routes
+- [ ] Unauthenticated visit to `(app)` routes redirects to `/sign-in`
+- ❌ `/auth/callback/processing` — checklist screen not implemented
+- ❌ `/auth/callback/success` — confirmation screen not implemented
+- ❌ `/auth/callback/error` — error detail screen not implemented
+- ❌ `/auth/callback/rate-limit` — countdown screen not implemented
 
-### Billing
+---
 
-- Current state: web billing can create a live Stripe Checkout session when the selected plan price ID and server secret key are configured.
-- Current state: mobile billing exposes a shared RevenueCat contract for offering `default`, entitlement `premium`, and packages `$rc_monthly` / `$rc_annual`, with Apple and Google availability tracked separately.
-- Blocker: Stripe webhook handling and real RevenueCat SDK installation are not present.
+## 3. Import Flow
 
-## 2. Core Web Flow Verification
+- ✅ `/import` requires authenticated session
+- ✅ Preview fails when `accountId` is blank
+- ✅ Preview fails when session user does not own the target account
+- ✅ ING CSV preview and import works
+- ✅ Trading 212 CSV preview and import works (including `Currency (Total)` column)
+- ✅ Successful import emits `csv_import_completed`
+- ✅ 393-row ING smoke: 0 errors, 0 duplicates
+- [ ] First import emits `first_import` once only — verify in PostHog
+- [ ] Import errors reach Sentry — verify in Sentry dashboard
+- ❌ `/import/blocked` screen — wrong format error state not implemented
+- ❌ `/import/duplicates` screen — per-row skip reason not implemented
+- ❌ `/import/processing` screen — long-import progress not implemented
 
-### Onboarding
+---
 
-- [ ] Visit `/onboarding/payday`.
-- [ ] Complete payday, income, investing, and accounts steps.
-- [ ] Confirm the finish action routes to `/dashboard`.
-- [ ] Confirm the onboarding completion event fires in the browser instrumentation path.
+## 4. Transactions
 
-### Import Review
+- ✅ `/transactions` loads DB-backed rows for the authenticated user
+- ✅ Read-only mode — no editing in V1 beta
+- [ ] Read-only beta notice banner matches final design spec
+- [ ] Needs-review rows show warning tint (4% background) — not yet implemented
+- [ ] `transaction_reviewed` event fires for single and bulk actions
 
-- [ ] Visit `/import` with an authenticated session.
-- [ ] Confirm preview fails when `accountId` is blank.
-- [ ] Confirm preview fails when the session user does not own the target account.
-- [ ] Confirm an ING CSV preview works.
-- [ ] Confirm a Trading 212 CSV preview works.
-- [ ] Confirm successful import emits `csv_import_completed`.
-- [ ] Confirm first successful import emits `first_import` once only.
-- [ ] Confirm import errors are routed to Sentry through the configured bootstrap path.
+---
 
-### Transactions Review
+## 5. Why This Number
 
-- [ ] Visit `/transactions`.
-- [ ] Change at least one transaction intent.
-- [ ] Bulk mark transactions as reviewed.
-- [ ] Confirm `transaction_reviewed` is emitted for both single-row and bulk actions.
+- ✅ `/why` loads without errors
+- ✅ Assumption trail is visible and navigable
+- [ ] `first_trusted_number` event fires once only — verify in PostHog
 
-### Why This Number
+---
 
-- [ ] Visit `/why`.
-- [ ] Confirm the “trusted number” view loads without errors.
-- [ ] Confirm `first_trusted_number` is emitted once only.
+## 6. Dashboard and Settings
 
-### Observability Bootstrap
+- ✅ `/dashboard` shows safe-to-spend hero, stat cards, next bills, quick links
+- ✅ `/settings` shows theme toggle, account info, data section, legal links
+- ✅ Light mode / dark mode toggle works and persists via localStorage
+- ✅ No theme flash on page load
 
-- [ ] Load an app page with no observability env values and confirm the app still runs without client errors.
-- [ ] Set `NEXT_PUBLIC_POSTHOG_KEY` and confirm browser events reach the target PostHog project.
-- [ ] Set `NEXT_PUBLIC_SENTRY_DSN` and confirm browser-side exceptions arrive in Sentry.
-- [ ] Set `SENTRY_DSN` in the server runtime if server-only reporting is required and confirm API-route exceptions arrive in Sentry.
+---
 
-## 3. Beta Ops Verification
+## 7. Operational Pages
 
-- [ ] Visit `/beta`.
-- [ ] Submit a valid request using `ING` and `Trading 212`.
-- [ ] Confirm the API returns a durable `beta-...` ticket.
-- [ ] Confirm a row is written to the `beta_signups` table in the target database.
-- [ ] Submit the same email twice and confirm the API returns the existing ticket instead of creating a duplicate signup row.
-- [ ] Submit an invalid request and confirm validation blocks unsupported bank/broker combinations.
-- [ ] Confirm beta signup failures are captured through the observability exception path.
-- [ ] Visit `/privacy` and confirm all unresolved legal details are explicitly marked `TODO(owner)`.
-- [ ] Visit `/terms` and confirm all unresolved legal details are explicitly marked `TODO(owner)`.
+- ✅ `/readiness` renders 5 groups with per-item status
+- ✅ `/privacy` renders EU/GDPR pills and 4 stat cards
+- ✅ `/terms` renders plain-language summary and 7 sections
+- [ ] Replace all `TODO(owner)` placeholders in `/privacy` and `/terms`
 
-## 4. Billing Verification
+---
 
-### Web
+## 8. Beta Signup
 
-- [ ] Visit `/billing`.
-- [ ] Confirm Stripe public key status reflects env presence.
-- [ ] Confirm monthly checkout is unavailable when `NEXT_PUBLIC_STRIPE_PRICE_ID_MONTHLY` is absent.
-- [ ] Confirm annual checkout is unavailable when `NEXT_PUBLIC_STRIPE_PRICE_ID_ANNUAL` is absent.
-- [ ] Submit a valid billing email for a configured plan and confirm a Stripe Checkout URL/session is returned.
-- [ ] Submit a valid billing email for an unconfigured plan and confirm the request fails safely.
-- [ ] Submit an invalid billing email and confirm validation blocks the request.
+- [ ] Visit `/beta` and submit a valid request (ING + Trading 212)
+- [ ] Confirm API returns a durable `beta-...` ticket
+- [ ] Confirm a row is written to `beta_signups` in the target database
+- [ ] Submit the same email twice — confirm existing ticket is returned (no duplicate)
+- [ ] Submit an invalid combination — confirm validation blocks it
 
-### Mobile
+---
 
-- [ ] Open the mobile home screen.
-- [ ] Confirm the RevenueCat billing card renders.
-- [ ] Confirm offering `default` and entitlement `premium` are displayed.
-- [ ] Confirm package identifiers `$rc_monthly` and `$rc_annual` are displayed.
-- [ ] Confirm Apple billing stays unavailable when `EXPO_PUBLIC_REVENUECAT_APPLE_PUBLIC_KEY` is absent.
-- [ ] Confirm Google billing stays unavailable when `EXPO_PUBLIC_REVENUECAT_GOOGLE_PUBLIC_KEY` is absent.
-- [ ] Confirm the status still reports `SDK missing` until the real RevenueCat SDK is installed.
+## 9. Observability Bootstrap
 
-## 5. Required Validation Commands
+- [ ] Load an app page with no observability env values — confirm no client errors
+- [ ] Set `NEXT_PUBLIC_POSTHOG_KEY` — confirm browser events arrive in PostHog
+- [ ] Set `NEXT_PUBLIC_SENTRY_DSN` — confirm browser exceptions arrive in Sentry
 
-- [ ] Run `pnpm tsc --noEmit`
-- [ ] Run `pnpm build`
+---
 
-## 6. Go / No-Go Blockers
+## Go / No-Go Blockers
 
-Launch remains **NO-GO** until these are resolved:
+**First cohort (3–5 users) — Conditional GO**  
+The basic sign-in → import → transactions → why flow works end-to-end. Proceed with first cohort while resolving items below.
 
-- [ ] Real Supabase auth env values and callback registration are configured in the target environment.
-- [ ] PostHog ingest is verified with the chosen beta bootstrap approach.
-- [ ] Sentry ingest is verified with the chosen beta bootstrap approach.
-- [ ] Stripe live keys, both price IDs, webhook registration, and post-checkout subscription handling are implemented.
-- [ ] RevenueCat Apple and Google public keys, SDK installation, and live entitlement/offering fetch are implemented.
-- [ ] Owner legal details and contact channels replace all `TODO(owner)` placeholders.
-- [ ] The owner invite/review workflow for rows in `beta_signups` is defined and tested.
+**Full private beta launch — still blocked by**:
+- Auth callback state machine (4 missing routes)
+- Import edge states (3 missing screens)
+- Legal `TODO(owner)` placeholders in `/privacy` and `/terms`
+- `beta_signups` migration applied to real database
+- Observability ingest confirmed in dashboards

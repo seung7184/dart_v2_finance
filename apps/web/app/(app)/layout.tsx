@@ -1,13 +1,7 @@
 import React from 'react';
-import Link from 'next/link';
 import { requireAuthenticatedAppUser } from '@/auth/session';
-
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/dashboard', icon: '⌂' },
-  { label: 'Transactions', href: '/transactions', icon: '↔' },
-  { label: 'Import CSV', href: '/import', icon: '↑' },
-  { label: 'Why This Number?', href: '/why', icon: '?' },
-];
+import { SidebarNav } from '@/layout/SidebarNav';
+import { ThemeToggle } from '@/theme/ThemeToggle';
 
 export default async function AppShellLayout({
   children,
@@ -20,7 +14,7 @@ export default async function AppShellLayout({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '224px 1fr',
+        gridTemplateColumns: '220px 1fr',
         minHeight: '100vh',
         background: 'var(--surface-0)',
       }}
@@ -29,11 +23,11 @@ export default async function AppShellLayout({
       <aside
         style={{
           borderRight: '1px solid var(--border-subtle)',
-          padding: '22px 14px',
+          padding: '20px 12px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 18,
-          background: 'var(--surface-0)',
+          gap: 16,
+          background: 'var(--surface-sidebar, var(--surface-0))',
           position: 'sticky',
           top: 0,
           alignSelf: 'start',
@@ -47,7 +41,8 @@ export default async function AppShellLayout({
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            padding: '4px 8px 10px',
+            padding: '4px 8px 12px',
+            borderBottom: '1px solid var(--border-subtle)',
           }}
         >
           <div
@@ -56,7 +51,7 @@ export default async function AppShellLayout({
               height: 28,
               borderRadius: 8,
               background: 'var(--accent-500)',
-              color: '#fff',
+              color: 'var(--text-inverse)',
               display: 'grid',
               placeItems: 'center',
               fontWeight: 800,
@@ -79,85 +74,43 @@ export default async function AppShellLayout({
           </div>
         </div>
 
-        {/* Nav section */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--text-tertiary)',
-              padding: '0 10px 6px',
-            }}
-          >
-            Workspace
-          </div>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '7px 10px',
-                  borderRadius: 8,
-                  color: 'var(--text-secondary)',
-                  textDecoration: 'none',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  letterSpacing: '-0.005em',
-                  transition: 'background var(--duration-fast) var(--ease-standard)',
-                }}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
+        {/* Nav */}
+        <SidebarNav />
 
-        {/* Footer user section */}
+        {/* Footer */}
         <div
           style={{
             marginTop: 'auto',
-            padding: '10px 10px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            paddingTop: 12,
             borderTop: '1px solid var(--border-subtle)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
+          <ThemeToggle />
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 10px',
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              color: 'var(--accent-400)',
+            }}
+          >
+            <span
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                background: 'var(--surface-2)',
-                color: 'var(--text-primary)',
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: 600,
-                fontSize: 11,
-                flexShrink: 0,
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--accent-400)',
               }}
-            >
-              β
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 1 }}>
-              <span
-                style={{
-                  fontSize: 12,
-                  color: 'var(--text-primary)',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                Beta user
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Private beta</span>
-            </div>
+            />
+            Free beta
           </div>
         </div>
       </aside>
