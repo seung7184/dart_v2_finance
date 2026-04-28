@@ -581,27 +581,55 @@ For ING rows like "Spending cashback":
 
 Requires a T212 CSV with Card debit rows (column headers include `Merchant name` and `Merchant category`).
 
+Before importing, make sure the Supabase table has the idempotent merchant-field migration applied:
+
+```sql
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS merchant_category text;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS normalized_merchant_name text;
+```
+
 1. Reset test data (step 0)
 2. Import a fresh T212 CSV containing at least one Card debit row
-3. Open Supabase Table Editor → `transactions` table
+3. Verify the imported Card debit rows in Supabase SQL editor:
+
+```sql
+SELECT
+  id,
+  raw_description,
+  merchant_name,
+  merchant_category,
+  normalized_merchant_name,
+  source,
+  occurred_at
+FROM public.transactions
+WHERE user_id = '<your-test-user-id>'
+  AND source = 't212_csv'
+  AND raw_description = 'Card debit'
+ORDER BY occurred_at DESC
+LIMIT 20;
+```
+
 4. Locate a Card debit row
 5. **Expected**:
+   - `raw_description = 'Card debit'`
    - `merchant_name` is not null (e.g. `DIRK VDBROEK FIL4103`)
    - `merchant_category` is not null (e.g. `RETAIL_STORES`)
    - `normalized_merchant_name` is lowercase + trimmed form of merchant_name (e.g. `dirk vdbroek fil4103`)
 6. Navigate to `/transactions`
 7. **Expected**: Card debit rows show merchant name below the description (e.g. `merchant: DIRK VDBROEK FIL4103`)
 
-**Failure symptom**: `merchant_name` is null → migration 0004 not applied, or parser not extracting columns.
+**Failure symptom**: `merchant_category` or `normalized_merchant_name` column missing → apply migration `0005_supabase_merchant_fields_idempotent.sql` or run the SQL above.
+
+**Failure symptom**: `merchant_name` is null → parser/import path is not extracting `Merchant name`, or the import is old data from before the merchant persistence fix.
 
 ---
 
 ### 31. Merchant persistence — existing data note
 
-Transactions imported before migration `0004_merchant_fields` was applied will have
-`merchant_category = null` and `normalized_merchant_name = null`.
+Transactions imported before the merchant-field migration was applied can have
+`merchant_name = null`, `merchant_category = null`, and `normalized_merchant_name = null`.
 This is expected behaviour — no backfill is performed automatically.
-A fresh re-import after a data reset will persist all merchant fields correctly.
+Reset the test user's imported app data and perform a fresh T212 import to persist all merchant fields correctly.
 
 ---
 
