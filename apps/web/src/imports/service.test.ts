@@ -98,13 +98,17 @@ class FakeImportRepository implements ImportRepository {
   async createTransaction(input: {
     accountId: string;
     amount: number;
+    categoryId?: string | null;
     currency: string;
     externalId: string | null;
     importBatchId: string;
     intent: string;
+    merchantName?: string | null;
+    merchantCategory?: string | null;
+    normalizedMerchantName?: string | null;
     occurredAt: Date;
     rawDescription: string;
-    reviewStatus: 'pending';
+    reviewStatus: 'pending' | 'needs_attention';
     source: 'ing_csv' | 't212_csv';
     userId: string;
   }) {
@@ -114,6 +118,10 @@ class FakeImportRepository implements ImportRepository {
     };
     this.transactions.push(transaction);
     return { id: transaction.id };
+  }
+
+  async findCategoryByName(_name: string): Promise<{ id: string } | null> {
+    return null;
   }
 
   async findAccount(accountId: string) {
@@ -359,6 +367,90 @@ describe('executeImport', () => {
       intent: 'income_other',
       source: 't212_csv',
     });
+  });
+
+  it('persists T212 merchant_name and merchant_category from Card debit rows', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-t212', 'user-2');
+
+    const csvContent = [
+      'Action,Time,Notes,ID,Total,Currency (Total),Merchant name,Merchant category',
+      'Card debit,2026-04-03 12:00:00,,card-id,-17.04,EUR,DIRK VDBROEK FIL4103,RETAIL_STORES',
+    ].join('\n');
+
+    const result = await executeImport(
+      {
+        accountId: 'account-t212',
+        authenticatedUserId: 'user-2',
+        bank: 'T212',
+        csvContent,
+        originalFilename: 't212.csv',
+      },
+      repository,
+    );
+
+    expect(result.importedCount).toBe(1);
+    const tx = repository.transactions.at(-1);
+    expect(tx).toMatchObject({
+      merchantName: 'DIRK VDBROEK FIL4103',
+      merchantCategory: 'RETAIL_STORES',
+      normalizedMerchantName: 'dirk vdbroek fil4103',
+      intent: 'living_expense',
+      source: 't212_csv',
+    });
+  });
+
+  it('ING import leaves merchant fields null', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-ing', 'user-1');
+
+    const csvContent = [
+      'Datum;Naam / Omschrijving;Rekening;Tegenrekening;Code;Af Bij;Bedrag (EUR);Mutatiesoort;Mededelingen',
+      '05-04-2026;Coffee Company;;;;Af;3,50;;',
+    ].join('\n');
+
+    await executeImport(
+      {
+        accountId: 'account-ing',
+        authenticatedUserId: 'user-1',
+        bank: 'ING',
+        csvContent,
+        originalFilename: 'ing.csv',
+      },
+      repository,
+    );
+
+    const tx = repository.transactions.at(-1);
+    expect(tx?.merchantCategory).toBeNull();
+    expect(tx?.merchantName).toBeNull();
+    expect(tx?.normalizedMerchantName).toBeNull();
+  });
+
+  it('ING import derives merchant name from registry and normalizes it', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-ing', 'user-1');
+
+    const csvContent = [
+      'Datum;Naam / Omschrijving;Rekening;Tegenrekening;Code;Af Bij;Bedrag (EUR);Mutatiesoort;Mededelingen',
+      '05-04-2026;Albert Heijn  0456;;;;Af;12,34;;',
+    ].join('\n');
+
+    await executeImport(
+      {
+        accountId: 'account-ing',
+        authenticatedUserId: 'user-1',
+        bank: 'ING',
+        csvContent,
+        originalFilename: 'ing.csv',
+      },
+      repository,
+    );
+
+    const tx = repository.transactions.at(-1);
+    // Registry match → merchantName set to registry canonical name, normalizedMerchantName lowercase
+    expect(tx?.merchantName).toBe('Albert Heijn');
+    expect(tx?.normalizedMerchantName).toBe('albert heijn');
+    expect(tx?.intent).toBe('living_expense');
   });
 
   it('rejects imports when the authenticated user does not own the account', async () => {

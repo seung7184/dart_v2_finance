@@ -68,6 +68,8 @@ export function parseINGCsv(
         source: 'ing_csv',
         intent_hint: null,
         dedup_hash: dedupHash,
+        merchant_name: null,
+        merchant_category: null,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown ING parse error';

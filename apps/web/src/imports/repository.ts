@@ -76,6 +76,8 @@ export function createImportRepository(database: QueryableDatabase = db): Import
           importBatchId: input.importBatchId,
           intent: input.intent as NonNullable<TransactionInsert['intent']>,
           merchantName: input.merchantName ?? null,
+          merchantCategory: input.merchantCategory ?? null,
+          normalizedMerchantName: input.normalizedMerchantName ?? null,
           occurredAt: input.occurredAt,
           rawDescription: input.rawDescription,
           reviewStatus: input.reviewStatus,

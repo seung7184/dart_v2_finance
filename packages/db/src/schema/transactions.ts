@@ -25,6 +25,8 @@ export const transactions = pgTable('transactions', {
   // Classification fields — user/rules can modify
   normalizedDescription: text('normalized_description'),
   merchantName: text('merchant_name'),
+  merchantCategory: text('merchant_category'),
+  normalizedMerchantName: text('normalized_merchant_name'),
   intent: intentEnum('intent').default('unclassified').notNull(),
   categoryId: uuid('category_id').references(() => categories.id),
   reviewStatus: reviewStatusEnum('review_status').default('pending').notNull(),

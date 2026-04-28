@@ -91,6 +91,8 @@ export type ImportRepository = {
     importBatchId: string;
     intent: string;
     merchantName?: string | null;
+    merchantCategory?: string | null;
+    normalizedMerchantName?: string | null;
     occurredAt: Date;
     rawDescription: string;
     reviewStatus: 'pending' | 'needs_attention';
@@ -155,6 +157,10 @@ function getInitialReviewStatus(intent: string): 'pending' | 'needs_attention' {
 
 function hashFileContent(csvContent: string): string {
   return createHash('sha256').update(csvContent).digest('hex');
+}
+
+function normalizeMerchantName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function totalRowCount(parseResult: ParseResult): number {
@@ -347,9 +353,12 @@ export async function executeImport(
       continue;
     }
 
-    const merchantSuggestion = suggestFromMerchantName(row.raw_description);
+    // If the CSV row carries an actual merchant name (T212 Card debit), use it directly.
+    // Otherwise fall back to registry lookup on the raw description (ING and non-card T212).
+    const lookupText = row.merchant_name ?? row.raw_description;
+    const merchantSuggestion = suggestFromMerchantName(lookupText);
 
-    // Merchant suggestion can upgrade the intent hint (e.g. raw ING row has no hint)
+    // T212 intent hint takes precedence; merchant suggestion can upgrade ING (no hint)
     const effectiveIntentHint = row.intent_hint ?? merchantSuggestion?.suggestedIntent ?? null;
     const intent = normalizeIntent(effectiveIntentHint);
 
@@ -359,6 +368,12 @@ export async function executeImport(
       suggestedCategoryId = cat?.id ?? null;
     }
 
+    // Prefer the actual merchant name from CSV; fall back to the registry-matched name.
+    const finalMerchantName = row.merchant_name ?? merchantSuggestion?.merchantName ?? null;
+    const finalNormalizedMerchantName = finalMerchantName
+      ? normalizeMerchantName(finalMerchantName)
+      : null;
+
     const createdTransaction = await repository.createTransaction({
       accountId: input.accountId,
       amount: row.amount_cents,
@@ -367,7 +382,9 @@ export async function executeImport(
       externalId: row.external_id,
       importBatchId: createdBatch.id,
       intent,
-      merchantName: merchantSuggestion?.merchantName ?? null,
+      merchantName: finalMerchantName,
+      merchantCategory: row.merchant_category,
+      normalizedMerchantName: finalNormalizedMerchantName,
       occurredAt: row.occurred_at,
       rawDescription: row.raw_description,
       reviewStatus: getInitialReviewStatus(intent),

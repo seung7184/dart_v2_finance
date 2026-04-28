@@ -60,6 +60,7 @@ async function getTransactionsForUser(userId: string): Promise<TransactionRow[]>
       categoryName: categories.name,
       occurredAt: transactions.occurredAt,
       rawDescription: transactions.rawDescription,
+      merchantName: transactions.merchantName,
       reviewStatus: transactions.reviewStatus,
       source: transactions.source,
     })
@@ -82,6 +83,7 @@ async function getTransactionsForUser(userId: string): Promise<TransactionRow[]>
     categoryName: r.categoryName ?? null,
     occurredAt: r.occurredAt,
     rawDescription: r.rawDescription,
+    merchantName: r.merchantName ?? null,
     reviewStatus: r.reviewStatus as TransactionRow['reviewStatus'],
     source: r.source,
   }));

@@ -9,6 +9,8 @@ export interface ParsedRow {
   source: 'ing_csv' | 't212_csv';
   intent_hint: string | null;
   dedup_hash: string;
+  merchant_name: string | null;
+  merchant_category: string | null;
 }
 
 export interface DuplicateRow {

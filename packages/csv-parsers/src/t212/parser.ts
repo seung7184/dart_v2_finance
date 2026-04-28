@@ -50,6 +50,8 @@ export function parseT212Csv(
       }
 
       seenExternalIds.add(externalId);
+      const merchantName = rawRow['Merchant name']?.trim() || null;
+      const merchantCategory = rawRow['Merchant category']?.trim() || null;
       rows.push({
         row_index: index + 2,
         raw_data: rawRow,
@@ -62,6 +64,8 @@ export function parseT212Csv(
         source: 't212_csv',
         intent_hint: t212ActionToIntentHint(rawRow['Action'] ?? ''),
         dedup_hash: `${accountId}:${externalId}`,
+        merchant_name: merchantName,
+        merchant_category: merchantCategory,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown T212 parse error';
