@@ -9,6 +9,7 @@ const GROUPS: ReadinessGroup[] = [
     items: [
       { t: 'Supabase magic-link delivery', s: 'auth env wired · callback registered', on: true },
       { t: 'Session persistence', s: '30-day refresh · HttpOnly cookie', on: true },
+      { t: 'Auth callback state machine', s: 'error copy polished · onboarding redirect wired', on: true },
       { t: 'Real authenticated user smoke', s: 'Owner verified locally · Apr 2026', on: true },
     ],
   },
@@ -18,27 +19,44 @@ const GROUPS: ReadinessGroup[] = [
       { t: 'Transactions DB-backed', s: 'Authenticated, read-only', on: true },
       { t: 'ING import', s: 'nl-NL · parser tested', on: true },
       { t: 'Trading 212 import', s: 'Owner verified 20 rows imported', on: true },
+      { t: 'Merchant-assisted categorisation', s: 'Mapping registry + bulk-apply wired', on: true },
+      { t: 'Category analysis on dashboard', s: 'Monthly breakdown, reviewed-only', on: true },
+      { t: 'Merchant insights on dashboard', s: 'Top merchants + recurring detection', on: true },
+    ],
+  },
+  {
+    label: 'UX hygiene',
+    items: [
+      { t: 'No raw UUIDs in normal UX', s: 'batchId removed from import notice', on: true },
+      { t: 'No demo data shown as real', s: 'All data is DB-backed, no hardcoded samples', on: true },
+      { t: 'Fresh-user onboarding redirect', s: 'Post sign-in → /onboarding/payday if new', on: true },
     ],
   },
   {
     label: 'Telemetry',
     items: [
-      { t: 'PostHog events wired', s: 'Key provided · ingest pending verification', on: true, partial: true },
-      { t: 'Sentry error capture wired', s: 'DSN provided · dashboard pending verification', on: true, partial: true },
+      { t: 'PostHog events wired', s: 'Key provided · ingest pending owner verification', on: true, partial: true },
+      { t: 'Sentry error capture wired', s: 'DSN provided · dashboard pending owner verification', on: true, partial: true },
+      {
+        t: 'Verify in browser: open DevTools → Console → type window.__dartObservabilityBootstrap',
+        s: 'Should show { posthog: "configured", sentry: "configured" }',
+        on: false,
+        partial: true,
+      },
     ],
   },
   {
     label: 'Legal & contact',
     items: [
-      { t: 'Privacy page live', s: '/privacy · readable', on: true },
-      { t: 'Terms page live', s: '/terms · readable', on: true },
+      { t: 'Privacy page live', s: '/privacy · readable · no placeholder text', on: true },
+      { t: 'Terms page live', s: '/terms · readable · no placeholder text', on: true },
       { t: 'Contact email', s: 'support@dart.eu', on: true },
     ],
   },
   {
     label: 'Operations',
     items: [
-      { t: 'beta_signups migration applied', s: 'Pending real DB', on: false },
+      { t: 'beta_signups migration applied', s: 'Pending real DB — owner action required', on: false },
       { t: 'Invite workflow defined', s: 'Pending owner decision', on: false },
     ],
   },

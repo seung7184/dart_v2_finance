@@ -246,6 +246,19 @@ pnpm build
 
 ---
 
+## Supabase connection slots
+
+If you see `FATAL: 53300: remaining connection slots are reserved for roles with the SUPERUSER attribute`:
+
+1. **Stop the dev server** (`Ctrl+C`) — idle connections are released within ~20 seconds.
+2. **Avoid running** `pnpm web:dev` and Supabase Table Editor in intensive use at the same time.
+3. If connections remain stuck: terminate them via `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle';` in the SQL editor.
+4. Last resort: `supabase stop && supabase start`.
+
+See `docs/62_Supabase_Local_Connection_Troubleshooting.md` for full diagnosis steps.
+
+---
+
 ## GO / NO-GO interpretation
 
 | Result | Interpretation |
@@ -354,3 +367,221 @@ pnpm build
 | Import auto-account selection (Criteria D) | ✅ Implemented — test with step 14 |
 | T212 intent policy (Criteria E) | ✅ Implemented — test with step 15 |
 | Duplicate dedup messaging (Criteria F) | ✅ Improved — test with step 16 |
+
+---
+
+## Phase 1.6 Review Productivity + Basic Category Analysis — Additional QA Scenarios
+
+### 17. Filter by description (Criteria A)
+
+1. Navigate to `/transactions`
+2. Click any description cell (e.g., "Spending cashback")
+3. **Expected**: Filter chip appears at the top: *"Filtered: Spending cashback · N rows"*
+4. Only rows with that exact description are visible
+5. Other rows are hidden
+6. Click "✕ Clear filter"
+7. **Expected**: All rows reappear, filter chip is gone
+8. Click a different description
+9. **Expected**: Filter resets to the new description immediately
+
+**Failure symptom**: All rows still visible after clicking → `filterDesc` state not set. Check `TransactionsClient.tsx`.
+
+---
+
+### 18. Row checkboxes and select all (Criteria B)
+
+1. Navigate to `/transactions`
+2. Click the checkbox on any row
+3. **Expected**: Row highlights with accent tint, checkbox checked, selection count bar appears: *"1 selected"*
+4. Click the header checkbox (select all visible)
+5. **Expected**: All visible rows are selected, count updates
+6. Filter by a description (step 17), then use select all
+7. **Expected**: Only filtered rows are selected — hidden rows untouched
+8. Click "Clear selection"
+9. **Expected**: All checkboxes unchecked, bulk bar disappears
+
+---
+
+### 19. Bulk set intent + category (Criteria C + D)
+
+1. Filter by a description (e.g., "Card debit")
+2. Click header checkbox to select all visible
+3. In the bulk action bar, set intent to "Living expense"
+4. Set category to "Groceries"
+5. Click "Apply to selected"
+6. **Expected**: All selected rows now show:
+   - Intent badge: "Living"
+   - Category column: "Groceries"
+   - Rows remain visible (no page reload)
+7. Repeat with intent = "Transfer" and category = "Transfer"
+8. **Expected**: Intent and category update in place
+9. Set category to "— Clear category —" with any intent
+10. **Expected**: Category column reverts to "—" for selected rows
+
+**Failure symptom**: "Apply to selected" does nothing → check `/api/transactions/bulk-update` returns 200 with `{ status: "updated" }`.
+
+---
+
+### 20. Bulk confirm selected rows (Criteria C)
+
+1. Filter by a description that has unreviewed rows
+2. Select all filtered rows
+3. Click "Confirm selected"
+4. **Expected**: Selected rows status changes from "Ready to confirm" to "Reviewed" (no page reload)
+5. Warning banner count decreases by the confirmed count
+6. If all unreviewed rows were confirmed, banner disappears
+
+---
+
+### 21. Confirm all pending (from banner) — client-side (Criteria G)
+
+1. Import a fresh CSV to get unreviewed rows
+2. Navigate to `/transactions`
+3. **Expected**: Warning banner shows unreviewed count with "Confirm all pending" button
+4. Click "Confirm all pending"
+5. **Expected**: All rows in current view transition to "Reviewed" without page reload
+6. Warning banner disappears
+
+---
+
+### 22. Category analysis on Dashboard (Criteria E)
+
+1. Navigate to `/transactions`
+2. Filter by description, select rows, set category (e.g., Groceries), apply
+3. Navigate to `/dashboard`
+4. **Expected**: A "Spending by category" card appears (below Monthly overview)
+   - Shows reviewed transactions only
+   - Lists categories with EUR total, transaction count, and progress bar
+   - Rows with no category show as "Uncategorized" in italic
+   - Transfers, investment buys/sells, income are excluded
+5. Select a past month from the month selector
+6. **Expected**: Category breakdown updates for that month
+7. Confirm: total of all categories ≤ total reviewed spending (exact if all spending is categorized)
+
+**Failure symptom**: Category card missing → no reviewed spending transactions in selected month, or `loadMonthlyCategoryBreakdown` returned empty array.
+
+---
+
+### 23. Description filter + bulk productivity flow (Criteria G — full flow)
+
+Complete the full productivity loop:
+1. Import a T212 CSV with "Card debit" rows
+2. Navigate to `/transactions`
+3. Click "Card debit" description
+4. **Expected**: Only Card debit rows visible
+5. Select all (header checkbox)
+6. Set intent = "Living expense", category = "Shopping"
+7. Apply to selected
+8. Click "Confirm selected"
+9. **Expected**: All Card debit rows are now Living / Shopping / Reviewed — in one workflow
+
+For ING rows like "Spending cashback":
+1. Click "Spending cashback" description
+2. Select all, set intent + category, apply + confirm
+3. **Expected**: Same one-workflow result
+
+---
+
+## Updated GO / NO-GO for Phase 1.6
+
+| Area | Status |
+|------|--------|
+| Filter by description (Criteria A) | ✅ Implemented — test with step 17 |
+| Row checkboxes + select all (Criteria B) | ✅ Implemented — test with step 18 |
+| Bulk intent + category (Criteria C) | ✅ Implemented — test with step 19 |
+| Minimal category taxonomy (Criteria D) | ✅ Implemented — system categories seeded on first load |
+| Category analysis on dashboard (Criteria E) | ✅ Implemented — test with step 22 |
+| Safe-to-spend engine unchanged (Criteria F) | ✅ Analysis is read-only — no engine changes |
+| Productivity loop (Criteria G) | ✅ Implemented — test with step 23 |
+
+---
+
+## Phase 1.7 Merchant-Assisted Categorisation + Beta Hardening — Additional QA Scenarios
+
+### 24. Merchant insights card on Dashboard
+
+1. Import an ING or T212 CSV with multiple transactions from the same merchant
+2. Review and confirm those transactions
+3. Navigate to `/dashboard`
+4. **Expected**: A "Merchant insights" card appears below category breakdown
+   - Lists top merchants by reviewed spend with EUR total and % bar
+   - Merchants with 2+ months of spend show a "Recurring" badge
+5. Select a past month with reviewed spending
+6. **Expected**: Merchant insights updates for that month
+
+**Failure symptom**: Card not visible → no reviewed spending transactions in selected month, or fewer than 2 distinct merchants.
+
+---
+
+### 25. Merchant-assisted bulk categorisation (Criteria Phase 1.7)
+
+1. Import a CSV with "Albert Heijn" or "NS" or similar recognisable Dutch merchants
+2. Navigate to `/transactions`
+3. **Expected**: A banner or button appears: "Apply merchant suggestions" (or similar)
+4. Click the button
+5. **Expected**: Rows with known merchant patterns are pre-filled with category (e.g., "Groceries" for Albert Heijn)
+6. Review and confirm the auto-categorised rows
+7. Navigate to `/dashboard`
+8. **Expected**: Category breakdown shows the updated categories
+
+**Failure symptom**: No suggestions applied → merchant mapping registry may not include the merchant patterns in your CSV. Check `apps/web/src/merchants/`.
+
+---
+
+### 26. Auth callback error states
+
+1. Open the magic link callback URL but modify the token (e.g., append `x` to `access_token`)
+2. **Expected**: `/auth/callback` shows "The sign-in link has expired or is no longer valid. Please request a new magic link." with a "Back to sign in" button
+3. Clicking "Back to sign in" → returns to `/sign-in`
+
+**Failure symptom**: Raw error like "Missing Supabase session tokens" → callback page not yet updated.
+
+---
+
+### 27. Fresh-user onboarding redirect
+
+1. Clear cookies for localhost (or use a fresh browser profile)
+2. Request a magic link for a new account that has never completed onboarding
+3. Click the magic link
+4. **Expected**: After `/auth/callback` completes, user is redirected to `/onboarding/payday` (not `/dashboard`)
+5. Complete onboarding
+6. Sign out and sign back in
+7. **Expected**: After `/auth/callback`, user is now redirected to `/dashboard`
+
+**Failure symptom**: Always goes to `/dashboard` → `onboarding_completed` flag not being checked in `/api/auth/onboarding-status`.
+
+---
+
+### 28. No UUID in import "already imported" notice
+
+1. Import a CSV once
+2. Import the exact same CSV again
+3. **Expected**: Notice reads: "This file was already imported. No new transactions were added."
+4. **NOT expected**: Any UUID string like `550e8400-e29b-41d4-a716-446655440000` in the notice
+
+---
+
+### 29. Verify observability bootstrap in browser
+
+1. Open the app in a browser after signing in
+2. Open DevTools → Console
+3. Type: `window.__dartObservabilityBootstrap`
+4. **Expected**: `{ posthog: "configured", sentry: "configured" }` (if keys are set in `.env.local`)
+5. Type: `window.__dartObservedEvents`
+6. **Expected**: Array of events captured since page load (e.g., `csv_import_completed`, `onboarding_completed`)
+7. Open Network tab, filter by `i.posthog.com` or `sentry.io`
+8. Trigger an event (e.g., complete an import)
+9. **Expected**: Network request to PostHog capture endpoint with status 200
+
+---
+
+## Updated GO / NO-GO for Phase 1.7 + Beta Hardening
+
+| Area | Status |
+|------|--------|
+| Merchant insights on dashboard (Phase 1.7 A) | ✅ Implemented — test with step 24 |
+| Merchant-assisted categorisation (Phase 1.7 B) | ✅ Implemented — test with step 25 |
+| Auth callback error states (Hardening 1) | ✅ Implemented — test with step 26 |
+| Fresh-user onboarding redirect (Hardening 2) | ✅ Implemented — test with step 27 |
+| No UUID in UX (Hardening 3) | ✅ Implemented — test with step 28 |
+| Observability verification path (Hardening 4) | ⚠️ Owner verification needed — test with step 29 |

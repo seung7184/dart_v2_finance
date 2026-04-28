@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db, transactions, type Database } from '@dart/db';
 import type { TransactionReviewRepository, ValidIntent } from './review';
 
@@ -62,6 +62,44 @@ export function createTransactionReviewRepository(
             eq(transactions.userId, input.userId),
           ),
         );
+    },
+
+    async bulkUpdate(input) {
+      if (input.transactionIds.length === 0) {
+        return { updatedCount: 0 };
+      }
+
+      const setValues: Partial<TransactionUpdate> = { updatedAt: input.updatedAt };
+
+      if (input.intent !== undefined) {
+        setValues.intent = input.intent as NonNullable<TransactionUpdate['intent']>;
+      }
+      if ('categoryId' in input) {
+        // Allow explicit null to clear the category
+        setValues.categoryId = input.categoryId ?? null;
+      }
+      if (input.reviewStatus !== undefined) {
+        setValues.reviewStatus = input.reviewStatus as NonNullable<TransactionUpdate['reviewStatus']>;
+      }
+
+      // Only update if there's something to set beyond the timestamp
+      const hasPayload = Object.keys(setValues).length > 1;
+      if (!hasPayload) {
+        return { updatedCount: 0 };
+      }
+
+      const result = await database
+        .update(transactions)
+        .set(setValues)
+        .where(
+          and(
+            inArray(transactions.id, input.transactionIds),
+            eq(transactions.userId, input.userId),
+          ),
+        )
+        .returning({ id: transactions.id });
+
+      return { updatedCount: result.length };
     },
   };
 }

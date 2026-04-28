@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import {
   accounts,
+  categories,
   db,
   importBatches,
   importRows,
@@ -69,10 +70,12 @@ export function createImportRepository(database: QueryableDatabase = db): Import
         .values({
           accountId: input.accountId,
           amount: input.amount,
+          categoryId: input.categoryId ?? null,
           currency: input.currency,
           externalId: input.externalId,
           importBatchId: input.importBatchId,
           intent: input.intent as NonNullable<TransactionInsert['intent']>,
+          merchantName: input.merchantName ?? null,
           occurredAt: input.occurredAt,
           rawDescription: input.rawDescription,
           reviewStatus: input.reviewStatus,
@@ -86,6 +89,16 @@ export function createImportRepository(database: QueryableDatabase = db): Import
       }
 
       return createdTransaction;
+    },
+
+    async findCategoryByName(name) {
+      const [category] = await database
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.name, name))
+        .limit(1);
+
+      return category ?? null;
     },
 
     async findAccount(accountId) {

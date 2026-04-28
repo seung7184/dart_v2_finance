@@ -1,37 +1,55 @@
 # Dart Finance — Current Status
 
-**Last updated**: 2026-04-27  
+**Last updated**: 2026-04-28  
 **Owner**: Seungjae  
 **Phase 1 status**: COMPLETE — Minimal Beta Level  
-**Private Beta status**: NOT YET GO — next step is Beta Readiness Hardening
+**Phase 1.5 status**: COMPLETE — Beta Polish (monthly slicer, intent editing, T212 policy, import auto-select, dedup messaging)  
+**Phase 1.6 status**: COMPLETE — Review Productivity + Basic Category Analysis  
+**Phase 1.7 status**: COMPLETE — Merchant-Assisted Categorisation + Merchant Insights  
+**Beta Readiness Hardening status**: COMPLETE — See below  
+**Private Beta status**: CONDITIONAL GO — operational gates (telemetry ingest, beta_signups migration) require owner action before GO
 
 ---
 
-## Phase 1 — COMPLETE
+## Phase 1.7 — COMPLETE
 
-The Phase 1 trusted product loop is complete at minimal beta level. A real authenticated user can:
+Merchant-assisted categorisation and merchant insights are live:
 
-1. Sign in via magic link
-2. Import an ING or Trading 212 CSV
-3. Review imported transactions with warning treatment and confirm each row
-4. See the safe-to-spend number on `/dashboard` computed from real account data
-5. Drill down into the full assumption breakdown on `/why`
+- Merchant mapping registry (`apps/web/src/merchants/`) — maps raw description patterns to clean merchant names + category hints
+- Bulk merchant-assisted categorisation — "Apply merchant suggestions" action on `/transactions` pre-fills category for all matching rows
+- Merchant insights card on `/dashboard` — top merchants by spend, recurring merchant detection
+- Category analysis card on `/dashboard` — monthly breakdown by category, reviewed transactions only
 
-**Phase 1 completion does not mean Private Beta is GO.** See the Beta Readiness Hardening section below.
+---
 
-### Phase 1 Completed Capabilities
+## Beta Readiness Hardening — COMPLETE
 
-- Real dashboard data — safe-to-spend computed from authenticated user accounts, transactions, and assumptions
-- Real why breakdown — full assumption drill-down sharing the same view model as `/dashboard`
-- Shared safe-to-spend view model between `/dashboard` and `/why`
-- Import preview and review states — parsed rows shown with review status
-- Needs-attention transaction treatment — warning tint, review badges, per-row Confirm buttons
-- Confirm action persistence — persists `review_status = reviewed`, updates `updatedAt`, requires auth, checks ownership
-- Auth and ownership checks on all `(app)` routes and confirm API
-- Blocked unsupported CSV handling — returns a clear message naming ING + Trading 212 as the only supported formats
-- Duplicate/skipped/error row reasons — shown next to each row where parser/dedup logic provides them
-- Staged processing checklist — shown during long imports
-- Validation passed: `pnpm tsc --noEmit`, `pnpm --dir apps/web test` (50 tests), `pnpm test` (100 tests total), `pnpm build`
+All hardening items addressed in the 2026-04-28 session:
+
+### Auth callback state polish
+- Error messages are now user-facing: "The sign-in link has expired or is no longer valid" and "We couldn't complete your sign-in"
+- "Back to sign in" link shown on all error states
+- Fresh-user onboarding redirect: after successful sign-in, `/api/auth/onboarding-status` is called; if `onboarding_completed = false`, user is redirected to `/onboarding/payday` instead of `/dashboard`
+
+### Privacy / Terms
+- No placeholder text remains — both pages have real EU/GDPR-compliant content
+- Privacy page: data storage, sub-processors, rights, contact
+- Terms page: 7 plain-language sections, Netherlands law, effective date
+
+### PostHog + Sentry verification path
+- Both SDKs are wired via `BootstrapProviders` — custom lightweight shim sends events directly to EU endpoints
+- Owner verification step: open DevTools → Console → `window.__dartObservabilityBootstrap` → should show `{ posthog: "configured", sentry: "configured" }`
+- Ingest confirmation requires owner to trigger events (onboarding, import) and verify in PostHog/Sentry dashboards
+
+### UX hygiene
+- Raw `batchId` UUID removed from import "already imported" notice
+- No demo data anywhere — all data flows are DB-backed and user-scoped
+- No raw account UUID shown in normal UX — import form shows account name only
+
+### Readiness page updated
+- Phase 1.7 items added (merchant categorisation, merchant insights, category analysis)
+- UX hygiene group added (no UUIDs, no demo data, onboarding redirect)
+- Telemetry group includes browser verification instruction
 
 ---
 
@@ -47,76 +65,45 @@ The Phase 1 trusted product loop is complete at minimal beta level. A real authe
 
 | Route | Status | Notes |
 |-------|--------|-------|
-| `/dashboard` | ✅ Live | Safe-to-spend hero computed from real user data, stat cards, next bills, quick links |
-| `/import` | ✅ Live | ING + T212 upload, auth-gated, account ownership check, review preview, blocked/skipped-row states, staged checklist |
-| `/transactions` | ✅ Live | DB-backed, session-filtered, needs-review treatment, per-row Confirm with ownership check |
-| `/why` | ✅ Live | Full real-data assumption drill-down, shared view model with `/dashboard` |
+| `/dashboard` | ✅ Live | Safe-to-spend hero, monthly slicer, category spending breakdown, merchant insights |
+| `/import` | ✅ Live | ING + T212 upload, auth-gated, account ownership check, review preview, blocked/skipped-row states |
+| `/transactions` | ✅ Live | Description filter, row checkboxes, bulk intent+category update, bulk confirm, category column, merchant-assisted categorisation |
+| `/why` | ✅ Live | Full real-data assumption drill-down, payday explanation, T212 context |
 | `/onboarding/*` | ✅ Live | Payday, income, investing, accounts steps |
 | `/settings` | ✅ Live | Theme toggle, account info, data section, legal links |
-| `/readiness` | ✅ Live | 5 groups with real status (Auth/Data/Telemetry/Legal/Ops) |
-| `/privacy` | ✅ Live | EU/GDPR pills, 4 stat cards, prose sections |
-| `/terms` | ✅ Live | Plain-language summary, 7 sections |
+| `/readiness` | ✅ Live | 6 groups with real status (Auth/Data/UX/Telemetry/Legal/Ops) |
+| `/privacy` | ✅ Live | EU/GDPR pills, 4 stat cards, prose sections — no placeholders |
+| `/terms` | ✅ Live | Plain-language summary, 7 sections — no placeholders |
 | `/beta` | ✅ Live | Signup form, writes to `beta_signups` table |
-| `/sign-in` | ✅ Live | Magic link send — full callback state machine not yet implemented |
+| `/sign-in` | ✅ Live | Magic link send + polished callback state machine |
 | `/billing` | ✅ Scaffolded | Stripe + RevenueCat wired, intentionally not live for beta |
-
-### Design System
-- Dark mode (default) + light mode with localStorage persistence
-- Theme flash prevention via inline `<script>` in `<head>` + `suppressHydrationWarning`
-- All CSS custom properties in `packages/ui/src/tokens/colors.css`
-- Sidebar with active-link detection (client component `SidebarNav`)
 
 ### Auth
 - Supabase magic link flow wired end-to-end
-- `/auth/callback` token handoff working
+- `/auth/callback` token handoff working with user-friendly error states
+- Fresh-user post-sign-in redirect to `/onboarding/payday` if not yet onboarded
 - Real Supabase env values configured ✅
 - Callback URL registered in Supabase dashboard ✅
 - All `(app)` routes deny unauthenticated access
 
 ### Observability
-- PostHog key provided ✅ — ingest not yet confirmed in dashboard
-- Sentry DSN provided ✅ — ingest not yet confirmed in dashboard
-- Lightweight bootstrap shims installed (no-op fallback when keys absent)
-
-### Billing (Inactive)
-- Stripe scaffold: monthly + annual checkout wired, intentionally disabled for beta
-- RevenueCat scaffold: Apple + Google contract wired, SDK not installed
-- Billing is free for all beta users
+- PostHog key provided ✅ — ingest not yet confirmed in dashboard (owner action needed)
+- Sentry DSN provided ✅ — ingest not yet confirmed in dashboard (owner action needed)
+- Lightweight bootstrap shims installed — send directly to EU endpoints, no SDK bundle overhead
+- Verification: `window.__dartObservabilityBootstrap` shows configured state in DevTools console
 
 ---
 
-## What Remains Outside Phase 1
+## What Remains Outside Phase 1.7
 
-These items are explicitly deferred and do not block Phase 1 completion:
-
-- Full inline category/intent editing during transaction review
-- Rule creation (auto-classification rules engine)
-- Auth callback state machine polish (processing, success, error, rate-limit routes)
-- Legal placeholders — `TODO(owner)` copy in `/privacy` and `/terms`
-- Observability dashboard verification (keys configured, ingest not confirmed)
+- Telemetry ingest confirmation (owner: open app, trigger events, verify in PostHog + Sentry dashboards)
+- `beta_signups` migration on real DB (owner: run migration against production Supabase)
+- Invite workflow (owner: decide process)
 - Mobile (Expo — not yet in beta)
 - Billing activation
 - Bank sync / open banking
 - AI / chat surface
 - Extra CSV providers (Rabobank, DeGiro, others)
-
----
-
-## Private Beta Is Not Automatically GO
-
-Phase 1 completion proves the core product loop works. It does not mean the app is ready for real users.
-
-**Next workstream: Beta Readiness Hardening**
-
-See `docs/60_Beta_Readiness_Hardening_Prompt.md` for the exact prompt to use.
-
-Beta hardening covers:
-- Auth callback state machine (4 missing routes)
-- Observability ingest verification
-- User-facing error copy quality
-- Empty/error/loading state polish
-- Import/review/confirm end-to-end UX pass
-- Legal `TODO(owner)` placeholders resolved by owner
 
 ---
 
@@ -126,17 +113,21 @@ Beta hardening covers:
 |------|--------|
 | Core engine + CSV parsers | ✅ GO |
 | Web import + review loop | ✅ GO |
-| Transactions confirm flow | ✅ GO |
+| Transactions confirm + bulk flow | ✅ GO |
 | Dashboard + why (real data) | ✅ GO |
-| Auth (basic flow) | ✅ GO |
+| Merchant insights + category analysis | ✅ GO |
+| Auth (full state machine) | ✅ GO |
+| Fresh-user onboarding redirect | ✅ GO |
+| UX hygiene (no UUIDs, no demo data) | ✅ GO |
 | Design system + light/dark mode | ✅ GO |
-| Observability keys configured | ⚠️ Partial — ingest unverified |
-| Auth callback state machine | ❌ 4 routes missing |
-| Legal copy | ❌ TODO(owner) placeholders remain |
+| Legal copy (privacy + terms) | ✅ GO |
+| Observability keys configured | ⚠️ Partial — ingest unverified (owner action) |
+| `beta_signups` migration on real DB | ⏸ Owner action required |
+| Invite workflow | ⏸ Owner decision required |
 | Billing | ⏸ Intentionally off for beta |
-| beta_signups migration on real DB | ⏸ Owner action required |
 
-**Recommendation**: Phase 1 COMPLETE. Private Beta requires Beta Readiness Hardening pass before GO.
+**Recommendation**: CONDITIONAL GO for external private beta invite.  
+Blockers before GO: telemetry ingest confirmed + `beta_signups` migration applied.
 
 ---
 

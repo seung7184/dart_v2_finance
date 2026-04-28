@@ -39,6 +39,15 @@ export function isValidIntent(value: string): value is ValidIntent {
   return VALID_INTENTS.has(value);
 }
 
+export type BulkUpdateInput = {
+  transactionIds: string[];
+  userId: string;
+  intent?: ValidIntent;
+  categoryId?: string | null;
+  reviewStatus?: 'reviewed';
+  updatedAt: Date;
+};
+
 export type TransactionReviewRepository = {
   findTransaction(transactionId: string): Promise<{ id: string; userId: string } | null>;
   markReviewed(input: {
@@ -53,6 +62,7 @@ export type TransactionReviewRepository = {
     intent: ValidIntent;
     updatedAt: Date;
   }): Promise<void>;
+  bulkUpdate(input: BulkUpdateInput): Promise<{ updatedCount: number }>;
 };
 
 export async function confirmTransactionReview(
@@ -91,6 +101,36 @@ export async function confirmAllPendingReviews(
 ): Promise<{ status: 'all_reviewed' }> {
   await repository.markAllPendingReviewed(input.authenticatedUserId, input.reviewedAt);
   return { status: 'all_reviewed' };
+}
+
+export async function bulkUpdateTransactions(
+  input: {
+    authenticatedUserId: string;
+    transactionIds: string[];
+    intent?: ValidIntent;
+    categoryId?: string | null;
+    reviewStatus?: 'reviewed';
+    updatedAt: Date;
+  },
+  repository: TransactionReviewRepository,
+): Promise<{ status: 'updated'; updatedCount: number }> {
+  if (input.transactionIds.length === 0) {
+    return { status: 'updated', updatedCount: 0 };
+  }
+
+  // Build without undefined optional fields (exactOptionalPropertyTypes)
+  const bulkInput: BulkUpdateInput = {
+    transactionIds: input.transactionIds,
+    userId: input.authenticatedUserId,
+    updatedAt: input.updatedAt,
+  };
+  if (input.intent !== undefined) bulkInput.intent = input.intent;
+  if ('categoryId' in input) bulkInput.categoryId = input.categoryId;
+  if (input.reviewStatus !== undefined) bulkInput.reviewStatus = input.reviewStatus;
+
+  const result = await repository.bulkUpdate(bulkInput);
+
+  return { status: 'updated', updatedCount: result.updatedCount };
 }
 
 export async function updateTransactionIntent(

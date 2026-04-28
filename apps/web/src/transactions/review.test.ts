@@ -1,17 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { confirmAllPendingReviews, confirmTransactionReview, type TransactionReviewRepository } from './review';
+import {
+  bulkUpdateTransactions,
+  confirmAllPendingReviews,
+  confirmTransactionReview,
+  type BulkUpdateInput,
+  type TransactionReviewRepository,
+  type ValidIntent,
+} from './review';
 
 class FakeTransactionReviewRepository implements TransactionReviewRepository {
   public readonly updates: Array<{ reviewedAt: Date; transactionId: string; userId: string }> = [];
   public readonly bulkUpdates: Array<{ userId: string; reviewedAt: Date }> = [];
-  private readonly transactions = new Map<string, { id: string; userId: string }>();
+  public readonly intentUpdates: Array<{ transactionId: string; userId: string; intent: ValidIntent }> = [];
+  public readonly bulkUpdateCalls: BulkUpdateInput[] = [];
+  private readonly transactionStore = new Map<string, { id: string; userId: string }>();
 
   addTransaction(id: string, userId: string) {
-    this.transactions.set(id, { id, userId });
+    this.transactionStore.set(id, { id, userId });
   }
 
   async findTransaction(transactionId: string) {
-    return this.transactions.get(transactionId) ?? null;
+    return this.transactionStore.get(transactionId) ?? null;
   }
 
   async markReviewed(input: { reviewedAt: Date; transactionId: string; userId: string }) {
@@ -20,6 +29,19 @@ class FakeTransactionReviewRepository implements TransactionReviewRepository {
 
   async markAllPendingReviewed(userId: string, reviewedAt: Date) {
     this.bulkUpdates.push({ userId, reviewedAt });
+  }
+
+  async updateIntent(input: { transactionId: string; userId: string; intent: ValidIntent; updatedAt: Date }) {
+    this.intentUpdates.push(input);
+  }
+
+  async bulkUpdate(input: BulkUpdateInput): Promise<{ updatedCount: number }> {
+    this.bulkUpdateCalls.push(input);
+    const owned = input.transactionIds.filter((id) => {
+      const tx = this.transactionStore.get(id);
+      return tx?.userId === input.userId;
+    });
+    return { updatedCount: owned.length };
   }
 }
 
@@ -92,5 +114,69 @@ describe('confirmAllPendingReviews', () => {
 
     expect(repository.bulkUpdates[0]?.userId).toBe('user-2');
     expect(repository.updates).toHaveLength(0);
+  });
+});
+
+describe('bulkUpdateTransactions', () => {
+  it('returns zero count for empty id list', async () => {
+    const repository = new FakeTransactionReviewRepository();
+    const result = await bulkUpdateTransactions(
+      {
+        authenticatedUserId: 'user-1',
+        transactionIds: [],
+        intent: 'living_expense',
+        updatedAt: new Date(),
+      },
+      repository,
+    );
+    expect(result).toEqual({ status: 'updated', updatedCount: 0 });
+    expect(repository.bulkUpdateCalls).toHaveLength(0);
+  });
+
+  it('passes intent and categoryId to repository', async () => {
+    const repository = new FakeTransactionReviewRepository();
+    repository.addTransaction('tx-1', 'user-1');
+    repository.addTransaction('tx-2', 'user-1');
+
+    const updatedAt = new Date('2026-04-28T10:00:00.000Z');
+    const result = await bulkUpdateTransactions(
+      {
+        authenticatedUserId: 'user-1',
+        transactionIds: ['tx-1', 'tx-2'],
+        intent: 'living_expense',
+        categoryId: 'cat-groceries',
+        updatedAt,
+      },
+      repository,
+    );
+
+    expect(result.status).toBe('updated');
+    expect(result.updatedCount).toBe(2);
+    expect(repository.bulkUpdateCalls[0]).toMatchObject({
+      transactionIds: ['tx-1', 'tx-2'],
+      userId: 'user-1',
+      intent: 'living_expense',
+      categoryId: 'cat-groceries',
+    });
+  });
+
+  it('scopes update to authenticated user transactions only', async () => {
+    const repository = new FakeTransactionReviewRepository();
+    repository.addTransaction('tx-user1', 'user-1');
+    repository.addTransaction('tx-user2', 'user-2');
+
+    const result = await bulkUpdateTransactions(
+      {
+        authenticatedUserId: 'user-1',
+        transactionIds: ['tx-user1', 'tx-user2'],
+        reviewStatus: 'reviewed',
+        updatedAt: new Date(),
+      },
+      repository,
+    );
+
+    // Only user-1's transaction counts (the fake filters by ownership)
+    expect(result.updatedCount).toBe(1);
+    expect(repository.bulkUpdateCalls[0]?.userId).toBe('user-1');
   });
 });

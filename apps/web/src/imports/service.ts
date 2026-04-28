@@ -5,6 +5,7 @@ import {
   type ParseResult,
   type ParsedRow,
 } from '@dart/csv-parsers';
+import { suggestFromMerchantName } from '@dart/core';
 
 export type SupportedBank = 'ING' | 'T212';
 
@@ -84,16 +85,19 @@ export type ImportRepository = {
   createTransaction(input: {
     accountId: string;
     amount: number;
+    categoryId?: string | null;
     currency: string;
     externalId: string | null;
     importBatchId: string;
     intent: string;
+    merchantName?: string | null;
     occurredAt: Date;
     rawDescription: string;
     reviewStatus: 'pending' | 'needs_attention';
     source: 'ing_csv' | 't212_csv';
     userId: string;
   }): Promise<{ id: string }>;
+  findCategoryByName(name: string): Promise<{ id: string } | null>;
   findAccount(accountId: string): Promise<ImportAccount | null>;
   findExistingBatchByFileHash(userId: string, fileHash: string): Promise<ImportBatchRecord | null>;
   findTransactionByExternalId(accountId: string, externalId: string): Promise<{ id: string } | null>;
@@ -343,14 +347,27 @@ export async function executeImport(
       continue;
     }
 
-    const intent = normalizeIntent(row.intent_hint);
+    const merchantSuggestion = suggestFromMerchantName(row.raw_description);
+
+    // Merchant suggestion can upgrade the intent hint (e.g. raw ING row has no hint)
+    const effectiveIntentHint = row.intent_hint ?? merchantSuggestion?.suggestedIntent ?? null;
+    const intent = normalizeIntent(effectiveIntentHint);
+
+    let suggestedCategoryId: string | null = null;
+    if (merchantSuggestion) {
+      const cat = await repository.findCategoryByName(merchantSuggestion.categoryName);
+      suggestedCategoryId = cat?.id ?? null;
+    }
+
     const createdTransaction = await repository.createTransaction({
       accountId: input.accountId,
       amount: row.amount_cents,
+      categoryId: suggestedCategoryId,
       currency: row.currency,
       externalId: row.external_id,
       importBatchId: createdBatch.id,
       intent,
+      merchantName: merchantSuggestion?.merchantName ?? null,
       occurredAt: row.occurred_at,
       rawDescription: row.raw_description,
       reviewStatus: getInitialReviewStatus(intent),

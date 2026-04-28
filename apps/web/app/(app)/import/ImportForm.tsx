@@ -155,7 +155,7 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
       }
       setImportNotice(
         alreadyImported
-          ? `File already imported. Reused batch ${String(payload.batchId)}.`
+          ? `This file was already imported. No new transactions were added.`
           : `Imported ${importedCount} transactions for review. ${returnedDuplicateCount} duplicates skipped. ${returnedErrorCount} rows failed validation.`,
       );
     } catch (error) {

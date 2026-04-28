@@ -5,7 +5,8 @@ import { requireAuthenticatedAppUser } from '@/auth/session';
 import { getTransactionsRuntimeState } from '@/transactions/runtime';
 import { loadSafeToSpendSourceData } from '@/safe-to-spend/data';
 import { buildSafeToSpendViewModel, type SafeToSpendViewModel } from '@/safe-to-spend/view-model';
-import { loadAvailableMonths, loadMonthlyStats } from '@/safe-to-spend/monthly';
+import { loadAvailableMonths, loadMonthlyCategoryBreakdown, loadMonthlyStats } from '@/safe-to-spend/monthly';
+import { loadMerchantInsights, type MerchantInsights } from '@/merchants/insights';
 import MonthSelector from './MonthSelector';
 
 export const dynamic = 'force-dynamic';
@@ -246,6 +247,162 @@ function MonthlyStatsCard({
   );
 }
 
+function MerchantInsightsCard({
+  insights,
+  year,
+  month,
+}: {
+  insights: MerchantInsights;
+  year: number;
+  month: number;
+}) {
+  if (insights.topMerchants.length === 0 && insights.recurringMerchants.length === 0) {
+    return null;
+  }
+
+  const monthLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+
+  return (
+    <div
+      style={{
+        background: 'var(--surface-1)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 16,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          padding: '14px 20px',
+          borderBottom: '1px solid var(--border-subtle)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase' as const,
+            color: 'var(--text-tertiary)',
+          }}
+        >
+          Merchant insights · {monthLabel}
+        </div>
+        <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+          Reviewed transactions only
+        </span>
+      </div>
+
+      {/* Top merchants */}
+      {insights.topMerchants.length > 0 && (
+        <div>
+          {insights.topMerchants.map((m, i) => (
+            <div
+              key={m.merchantName}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 44px auto',
+                alignItems: 'center',
+                gap: 16,
+                padding: '10px 20px',
+                borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
+                    {m.merchantName}
+                  </span>
+                  {insights.recurringMerchants.includes(m.merchantName) && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase' as const,
+                        padding: '1px 6px',
+                        borderRadius: 999,
+                        background: 'var(--accent-tint)',
+                        color: 'var(--accent-400)',
+                      }}
+                    >
+                      Recurring
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    height: 3,
+                    borderRadius: 999,
+                    background: 'var(--border-subtle)',
+                    width: 100,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      borderRadius: 999,
+                      background: 'var(--accent-500)',
+                      width: `${m.concentrationPct}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: 'var(--text-tertiary)',
+                  fontVariantNumeric: 'tabular-nums',
+                  textAlign: 'right' as const,
+                }}
+              >
+                {m.concentrationPct}%
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {formatEUR(m.amountCents)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recurring-only merchants not in top 10 */}
+      {insights.recurringMerchants.filter(
+        (name) => !insights.topMerchants.find((m) => m.merchantName === name),
+      ).length > 0 && (
+        <div
+          style={{
+            padding: '10px 20px',
+            borderTop: '1px solid var(--border-subtle)',
+            fontSize: 12,
+            color: 'var(--text-tertiary)',
+          }}
+        >
+          Also recurring:{' '}
+          {insights.recurringMerchants
+            .filter((name) => !insights.topMerchants.find((m) => m.merchantName === name))
+            .join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const userId = await requireAuthenticatedAppUser();
@@ -269,12 +426,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const selectedMonth = Number.isFinite(selectedMonthRaw) ? selectedMonthRaw : currentMonth;
   const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
 
-  const [availableMonths, monthlyStats] = runtimeState.databaseConfigured
+  const [availableMonths, monthlyStats, categoryBreakdown, merchantInsights] = runtimeState.databaseConfigured
     ? await Promise.all([
         loadAvailableMonths(userId, today),
         loadMonthlyStats(userId, selectedYear, selectedMonth, today),
+        loadMonthlyCategoryBreakdown(userId, selectedYear, selectedMonth),
+        loadMerchantInsights(userId, selectedYear, selectedMonth),
       ])
-    : [[], null];
+    : [[], null, [], null];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -359,6 +518,104 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           {/* Monthly stats slicer — historical month */}
           {monthlyStats && !isCurrentMonth && (
             <MonthlyStatsCard stats={monthlyStats} isCurrentMonth={false} />
+          )}
+
+          {/* Category spending breakdown */}
+          {categoryBreakdown.length > 0 && (
+            <div
+              style={{
+                background: 'var(--surface-1)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 16,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '14px 20px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={eyebrowStyle()}>Spending by category · {new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(selectedYear, selectedMonth - 1, 1)))}</div>
+                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                  Reviewed transactions only
+                </span>
+              </div>
+              {categoryBreakdown.map((row, i) => {
+                const pct = monthlyStats && monthlyStats.reviewedSpendingCents > 0
+                  ? Math.round((row.amountCents / monthlyStats.reviewedSpendingCents) * 100)
+                  : 0;
+                return (
+                  <div
+                    key={row.categoryId ?? '__uncategorized__'}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto auto',
+                      alignItems: 'center',
+                      gap: 16,
+                      padding: '12px 20px',
+                      borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: row.categoryId ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                          fontWeight: 500,
+                          fontStyle: row.categoryId ? 'normal' : 'italic',
+                        }}
+                      >
+                        {row.categoryName}
+                      </span>
+                      <div
+                        style={{
+                          height: 3,
+                          borderRadius: 999,
+                          background: 'var(--border-subtle)',
+                          width: 120,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: '100%',
+                            borderRadius: 999,
+                            background: row.categoryId ? 'var(--accent-500)' : 'var(--border-default)',
+                            width: `${pct}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>
+                      {row.transactionCount} tx · {pct}%
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {formatEUR(row.amountCents)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Merchant insights */}
+          {merchantInsights && merchantInsights.topMerchants.length > 0 && (
+            <MerchantInsightsCard
+              insights={merchantInsights}
+              year={selectedYear}
+              month={selectedMonth}
+            />
           )}
 
           {/* Safe-to-spend hero — always shown (only meaningful for current period) */}
