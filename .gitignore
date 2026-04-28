@@ -7,4 +7,5 @@ dist
 *.tsbuildinfo
 coverage
 .DS_Store
-test-data/
+test-data/*
+!test-data/from_2026-01-01_to_2026-04-15_MTc3NjI2MDgyOTczMw.csv
