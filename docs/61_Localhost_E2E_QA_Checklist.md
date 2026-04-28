@@ -15,25 +15,51 @@
 
 ---
 
-## 0. Reset test user data (optional but recommended between test runs)
+## 0. Reset test user data (required after merchant persistence migration; recommended between all test runs)
 
-If you want a clean slate for a specific user:
+**Why reset is required after merchant persistence changes**: Migration `0004_merchant_fields` added
+`merchant_name`, `merchant_category`, and `normalized_merchant_name` to the `transactions` table.
+Transactions imported before this migration was applied have these fields as `null`. To get accurate
+merchant insights on the dashboard and correct merchant names under transaction descriptions, you must
+reset and re-import your ING and T212 CSVs using the steps below.
+
+Use the full reset script for a clean slate:
+
+```
+docs/sql/reset_test_user_app_data.sql
+```
+
+Steps:
+1. Find your test user's UUID in Supabase → Authentication → Users
+2. Open `docs/sql/reset_test_user_app_data.sql` in a text editor
+3. Replace both occurrences of `PASTE_USER_UUID_HERE` with your UUID
+4. Run the entire file in Supabase SQL Editor (local project only) or psql
+5. Run the verification queries at the bottom of the file — expect all counts = 0 and `onboarding_completed = false`
+
+> **LOCAL / DEV ONLY — NEVER RUN AGAINST PRODUCTION**
+
+After reset:
+- Re-import a fresh ING CSV and/or T212 CSV (steps 6 onward)
+- Run the SQL check below to verify merchant fields are populated after the fresh T212 import
+
+**SQL check — verify merchant fields after fresh T212 import**:
 
 ```sql
--- Run in Supabase SQL editor or psql
-DELETE FROM transactions WHERE user_id = '<your-test-user-id>';
-DELETE FROM import_rows WHERE user_id = '<your-test-user-id>';
-DELETE FROM import_batches WHERE user_id = '<your-test-user-id>';
-DELETE FROM accounts WHERE user_id = '<your-test-user-id>';
-UPDATE users
-  SET payday_day = NULL,
-      expected_monthly_income = NULL,
-      planned_investing_protected = TRUE,
-      onboarding_completed = FALSE,
-      updated_at = now()
-  WHERE id = '<your-test-user-id>';
-DELETE FROM budget_periods WHERE user_id = '<your-test-user-id>';
+-- Confirm merchant_name and merchant_category are populated on Card debit rows
+SELECT
+  raw_description,
+  merchant_name,
+  merchant_category,
+  normalized_merchant_name
+FROM transactions
+WHERE user_id = 'PASTE_YOUR_UUID_HERE'
+  AND source = 't212_csv'
+  AND raw_description = 'Card debit'
+LIMIT 10;
 ```
+
+Expected: `merchant_name` and `merchant_category` are not null for Card debit rows.
+If they are null, migration `0004_merchant_fields` has not been applied to your database.
 
 ---
 
