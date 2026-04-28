@@ -1,7 +1,11 @@
 import { and, eq } from 'drizzle-orm';
 import { accounts, db } from '@dart/db';
 import { requireAuthenticatedAppUser } from '@/auth/session';
-import { getTransactionsRuntimeState } from '@/transactions/runtime';
+import {
+  getDatabaseRuntimeErrorMessage,
+  getTransactionsRuntimeState,
+  withDatabaseRuntimeTimeout,
+} from '@/transactions/runtime';
 import ImportForm, { type AccountOption } from './ImportForm';
 
 export const dynamic = 'force-dynamic';
@@ -40,9 +44,17 @@ export default async function ImportPage() {
   const userId = await requireAuthenticatedAppUser();
   const runtimeState = getTransactionsRuntimeState(process.env);
 
-  const { ingAccount, t212Account } = runtimeState.databaseConfigured
-    ? await resolveAccountsForUser(userId)
-    : { ingAccount: null, t212Account: null };
+  let ingAccount: AccountOption | null = null;
+  let t212Account: AccountOption | null = null;
+  let databaseMessage = runtimeState.message;
+
+  if (runtimeState.databaseConfigured) {
+    try {
+      ({ ingAccount, t212Account } = await withDatabaseRuntimeTimeout(resolveAccountsForUser(userId)));
+    } catch (error) {
+      databaseMessage = getDatabaseRuntimeErrorMessage(error);
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -76,7 +88,46 @@ export default async function ImportPage() {
         </div>
       </div>
 
-      <ImportForm ingAccount={ingAccount} t212Account={t212Account} />
+      {databaseMessage ? (
+        <div style={{ padding: '24px 32px 48px' }}>
+          <div
+            style={{
+              background: 'var(--surface-1)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 12,
+              padding: 24,
+              maxWidth: 640,
+            }}
+          >
+            <div
+              style={{
+                color: 'var(--warning)',
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Database not connected
+            </div>
+            <h2
+              style={{
+                color: 'var(--text-primary)',
+                fontSize: 18,
+                fontWeight: 600,
+                margin: '10px 0 8px',
+              }}
+            >
+              CSV import needs the live database.
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+              {databaseMessage}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <ImportForm ingAccount={ingAccount} t212Account={t212Account} />
+      )}
     </div>
   );
 }

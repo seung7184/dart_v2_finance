@@ -2,7 +2,11 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { formatEUR } from '@dart/core';
 import { requireAuthenticatedAppUser } from '@/auth/session';
-import { getDatabaseRuntimeErrorMessage, getTransactionsRuntimeState } from '@/transactions/runtime';
+import {
+  getDatabaseRuntimeErrorMessage,
+  getTransactionsRuntimeState,
+  withDatabaseRuntimeTimeout,
+} from '@/transactions/runtime';
 import { loadSafeToSpendSourceData } from '@/safe-to-spend/data';
 import { buildSafeToSpendViewModel, type SafeToSpendViewModel } from '@/safe-to-spend/view-model';
 import { loadAvailableMonths, loadMonthlyCategoryBreakdown, loadMonthlyStats } from '@/safe-to-spend/monthly';
@@ -430,13 +434,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   if (runtimeState.databaseConfigured) {
     try {
       const [sourceData, loadedAvailableMonths, loadedMonthlyStats, loadedCategoryBreakdown, loadedMerchantInsights] =
-        await Promise.all([
+        await withDatabaseRuntimeTimeout(Promise.all([
           loadSafeToSpendSourceData(userId),
           loadAvailableMonths(userId, today),
           loadMonthlyStats(userId, selectedYear, selectedMonth, today),
           loadMonthlyCategoryBreakdown(userId, selectedYear, selectedMonth),
           loadMerchantInsights(userId, selectedYear, selectedMonth),
-        ]);
+        ]));
 
       viewModel = buildSafeToSpendViewModel(sourceData);
       availableMonths = loadedAvailableMonths;

@@ -4,7 +4,11 @@ import { requireAuthenticatedAppUser } from '@/auth/session';
 import { TrackTrustedNumberView } from '@/observability/TrackTrustedNumberView';
 import { loadSafeToSpendSourceData } from '@/safe-to-spend/data';
 import { buildSafeToSpendViewModel, type SafeToSpendViewModel } from '@/safe-to-spend/view-model';
-import { getTransactionsRuntimeState } from '@/transactions/runtime';
+import {
+  getDatabaseRuntimeErrorMessage,
+  getTransactionsRuntimeState,
+  withDatabaseRuntimeTimeout,
+} from '@/transactions/runtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -312,9 +316,18 @@ function DatabaseUnavailable({ message }: { message: string | null }) {
 export default async function WhyPage() {
   const userId = await requireAuthenticatedAppUser();
   const runtimeState = getTransactionsRuntimeState(process.env);
-  const viewModel = runtimeState.databaseConfigured
-    ? buildSafeToSpendViewModel(await loadSafeToSpendSourceData(userId))
-    : null;
+  let databaseErrorMessage = runtimeState.message;
+  let viewModel = null;
+
+  if (runtimeState.databaseConfigured) {
+    try {
+      viewModel = buildSafeToSpendViewModel(
+        await withDatabaseRuntimeTimeout(loadSafeToSpendSourceData(userId)),
+      );
+    } catch (error) {
+      databaseErrorMessage = getDatabaseRuntimeErrorMessage(error);
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -352,9 +365,9 @@ export default async function WhyPage() {
       </div>
 
       {!runtimeState.databaseConfigured ? (
-        <DatabaseUnavailable message={runtimeState.message} />
+        <DatabaseUnavailable message={databaseErrorMessage} />
       ) : !viewModel ? (
-        <DatabaseUnavailable message={runtimeState.message} />
+        <DatabaseUnavailable message={databaseErrorMessage} />
       ) : viewModel?.status !== 'ready' ? (
         <EmptyState viewModel={viewModel} />
       ) : (

@@ -1,7 +1,11 @@
 import { desc, eq } from 'drizzle-orm';
 import { accounts, categories, db, transactions } from '@dart/db';
 import { requireAuthenticatedAppUser } from '@/auth/session';
-import { getTransactionsRuntimeState } from '@/transactions/runtime';
+import {
+  getDatabaseRuntimeErrorMessage,
+  getTransactionsRuntimeState,
+  withDatabaseRuntimeTimeout,
+} from '@/transactions/runtime';
 import { getOrCreateSystemCategories } from '@/categories/repository';
 import TransactionsClient, { type TransactionRow, type CategoryOption } from './TransactionsClient';
 
@@ -97,13 +101,20 @@ export default async function TransactionsPage() {
     return <TransactionsUnavailable message={runtimeState.message} />;
   }
 
-  const [rows, systemCategories] = await Promise.all([
-    getTransactionsForUser(userId),
-    getOrCreateSystemCategories(),
-  ]);
+  let rows: TransactionRow[] = [];
+  let systemCategories: CategoryOption[] = [];
+
+  try {
+    [rows, systemCategories] = await withDatabaseRuntimeTimeout(Promise.all([
+      getTransactionsForUser(userId),
+      getOrCreateSystemCategories(),
+    ]));
+  } catch (error) {
+    return <TransactionsUnavailable message={getDatabaseRuntimeErrorMessage(error)} />;
+  }
 
   // systemCategories from DB have id + name; pass them to the client
-  const categoryOptions: CategoryOption[] = systemCategories;
+  const categoryOptions = systemCategories;
 
   return <TransactionsClient initialRows={rows} categories={categoryOptions} />;
 }

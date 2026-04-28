@@ -20,6 +20,8 @@ function createDatabase(): DrizzleDb {
   }
 
   const client = postgres(connectionString, {
+    // Fail fast when local DATABASE_URL points at an unavailable or mistyped host.
+    connect_timeout: 5,
     // Keep pool small in local dev to avoid exhausting Supabase connection slots.
     // Supabase local projects default to ~97 connections; 3 per Next.js worker leaves
     // plenty of headroom for the dashboard, Table Editor, and other tools.
