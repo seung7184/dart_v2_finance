@@ -32,6 +32,88 @@ export type MerchantInsights = {
   totalSpendCents: number;
 };
 
+type MerchantInsightRow = {
+  amountCents: number;
+  merchantName: string | null;
+  normalizedMerchantName: string | null;
+  occurredAt: Date;
+};
+
+function merchantKey(row: Pick<MerchantInsightRow, 'merchantName' | 'normalizedMerchantName'>): string | null {
+  return row.normalizedMerchantName ?? row.merchantName;
+}
+
+export function summarizeMerchantInsightRows(input: {
+  merchantRows: MerchantInsightRow[];
+  rollingRows: Array<Pick<MerchantInsightRow, 'merchantName' | 'normalizedMerchantName' | 'occurredAt'>>;
+}): MerchantInsights {
+  const totalSpendCents = input.merchantRows.reduce((sum, row) => sum + row.amountCents, 0);
+  const merchantGroups = new Map<
+    string,
+    { amountCents: number; displayName: string; transactionCount: number }
+  >();
+
+  for (const row of input.merchantRows) {
+    const key = merchantKey(row);
+    if (!key) continue;
+
+    const existing = merchantGroups.get(key);
+    if (existing) {
+      existing.amountCents += row.amountCents;
+      existing.transactionCount += 1;
+      if (!existing.displayName && row.merchantName) {
+        existing.displayName = row.merchantName;
+      }
+      continue;
+    }
+
+    merchantGroups.set(key, {
+      amountCents: row.amountCents,
+      displayName: row.merchantName ?? key,
+      transactionCount: 1,
+    });
+  }
+
+  const topMerchants: TopMerchant[] = Array.from(merchantGroups.values())
+    .sort((a, b) => b.amountCents - a.amountCents)
+    .slice(0, 10)
+    .map((merchant) => ({
+      merchantName: merchant.displayName,
+      amountCents: merchant.amountCents,
+      transactionCount: merchant.transactionCount,
+      concentrationPct:
+        totalSpendCents > 0 ? Math.round((merchant.amountCents / totalSpendCents) * 100) : 0,
+    }));
+
+  const merchantMonthSets = new Map<string, Set<string>>();
+  const merchantDisplayNames = new Map<string, string>();
+  for (const row of input.rollingRows) {
+    const key = merchantKey(row);
+    if (!key) continue;
+
+    if (!merchantDisplayNames.has(key)) {
+      merchantDisplayNames.set(key, row.merchantName ?? key);
+    }
+
+    const monthKey = `${row.occurredAt.getUTCFullYear()}-${row.occurredAt.getUTCMonth() + 1}`;
+    if (!merchantMonthSets.has(key)) {
+      merchantMonthSets.set(key, new Set());
+    }
+    merchantMonthSets.get(key)!.add(monthKey);
+  }
+
+  const recurringMerchants = Array.from(merchantMonthSets.entries())
+    .filter(([, months]) => months.size >= 2)
+    .map(([key]) => merchantDisplayNames.get(key) ?? key)
+    .sort();
+
+  return {
+    topMerchants,
+    recurringMerchants,
+    totalSpendCents,
+  };
+}
+
 /**
  * Loads merchant insights for a given month.
  * Only considers reviewed living-expense transactions.
@@ -47,16 +129,12 @@ export async function loadMerchantInsights(
   const monthEnd = endOfMonth(year, month);
 
   // ── Top merchants for the selected month ──────────────────────────────────
-  // Group by normalized_merchant_name when available, falling back to merchant_name.
-  // This ensures consistent grouping across re-imports and minor name variations.
-  const groupKey = sql<string>`COALESCE(${transactions.normalizedMerchantName}, ${transactions.merchantName})`;
-
   const merchantRows = await database
     .select({
-      groupKey,
-      displayName: transactions.merchantName,
-      amountCents: sql<number>`SUM(ABS(${transactions.amount}))`.mapWith(Number),
-      transactionCount: sql<number>`COUNT(*)`.mapWith(Number),
+      merchantName: transactions.merchantName,
+      normalizedMerchantName: transactions.normalizedMerchantName,
+      amountCents: sql<number>`ABS(${transactions.amount})`.mapWith(Number),
+      occurredAt: transactions.occurredAt,
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
@@ -68,21 +146,7 @@ export async function loadMerchantInsights(
         eq(transactions.reviewStatus, 'reviewed'),
         inArray(transactions.intent, [...LIVING_EXPENSE_INTENTS]),
       ),
-    )
-    .groupBy(groupKey, transactions.merchantName)
-    .orderBy(sql`SUM(ABS(${transactions.amount})) DESC`);
-
-  const totalSpendCents = merchantRows.reduce((sum, r) => sum + r.amountCents, 0);
-
-  // Only rows with a non-null group key (i.e. some merchant identifier) qualify as named
-  const namedRows = merchantRows.filter((r) => r.groupKey !== null);
-  const topMerchants: TopMerchant[] = namedRows.slice(0, 10).map((r) => ({
-    merchantName: r.displayName ?? (r.groupKey as string),
-    amountCents: r.amountCents,
-    transactionCount: r.transactionCount,
-    concentrationPct:
-      totalSpendCents > 0 ? Math.round((r.amountCents / totalSpendCents) * 100) : 0,
-  }));
+    );
 
   // ── Recurring merchants: appear in ≥2 of the 3 rolling months ─────────────
   // Build the 3-month window ending at the selected month
@@ -116,26 +180,5 @@ export async function loadMerchantInsights(
       ),
     );
 
-  // Count distinct months each merchant appears in; use normalized name for grouping
-  const merchantMonthSets = new Map<string, Set<string>>();
-  for (const row of rollingRows) {
-    const key = row.normalizedMerchantName ?? row.merchantName;
-    if (!key) continue;
-    const monthKey = `${row.occurredAt.getUTCFullYear()}-${row.occurredAt.getUTCMonth() + 1}`;
-    if (!merchantMonthSets.has(key)) {
-      merchantMonthSets.set(key, new Set());
-    }
-    merchantMonthSets.get(key)!.add(monthKey);
-  }
-
-  const recurringMerchants = Array.from(merchantMonthSets.entries())
-    .filter(([, months]) => months.size >= 2)
-    .map(([name]) => name)
-    .sort();
-
-  return {
-    topMerchants,
-    recurringMerchants,
-    totalSpendCents,
-  };
+  return summarizeMerchantInsightRows({ merchantRows, rollingRows });
 }
