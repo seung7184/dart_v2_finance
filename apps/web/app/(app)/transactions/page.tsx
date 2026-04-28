@@ -39,7 +39,7 @@ type TransactionRow = {
   source: string;
 };
 
-const GRID = '104px minmax(132px, 0.8fr) minmax(220px, 1.3fr) 124px 136px 124px 104px';
+const GRID = '104px minmax(132px, 0.8fr) minmax(220px, 1.3fr) 124px 136px 124px 140px';
 
 const INTENT_LABELS: Record<TransactionIntent, string> = {
   living_expense: 'Living',
@@ -59,6 +59,26 @@ const INTENT_LABELS: Record<TransactionIntent, string> = {
   adjustment: 'Adjust',
   unclassified: 'Unclassified',
 };
+
+// Ordered intent options for the edit select
+const INTENT_OPTIONS: Array<{ value: TransactionIntent; label: string }> = [
+  { value: 'living_expense', label: 'Living expense' },
+  { value: 'recurring_bill', label: 'Recurring bill' },
+  { value: 'income_salary', label: 'Salary' },
+  { value: 'income_dividend', label: 'Dividend' },
+  { value: 'income_refund', label: 'Refund' },
+  { value: 'income_other', label: 'Other income' },
+  { value: 'transfer', label: 'Transfer' },
+  { value: 'reimbursement_out', label: 'Reimb. out' },
+  { value: 'reimbursement_in', label: 'Reimb. in' },
+  { value: 'investment_contribution', label: 'Investment contribution' },
+  { value: 'investment_buy', label: 'Buy' },
+  { value: 'investment_sell', label: 'Sell' },
+  { value: 'fee', label: 'Fee' },
+  { value: 'tax', label: 'Tax' },
+  { value: 'adjustment', label: 'Adjustment' },
+  { value: 'unclassified', label: 'Unclassified' },
+];
 
 function formatDate(value: Date): string {
   return new Intl.DateTimeFormat('en-NL', {
@@ -189,6 +209,64 @@ function ConfirmReviewButton({ transactionId }: { transactionId: string }) {
   );
 }
 
+function EditIntentForm({
+  transactionId,
+  currentIntent,
+}: {
+  transactionId: string;
+  currentIntent: TransactionIntent;
+}) {
+  return (
+    <form
+      action="/api/transactions/update-intent"
+      method="post"
+      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+    >
+      <input type="hidden" name="transactionId" value={transactionId} />
+      <select
+        name="intent"
+        defaultValue={currentIntent}
+        style={{
+          height: 30,
+          padding: '0 6px',
+          borderRadius: 6,
+          border: '1px solid var(--border-default)',
+          background: 'var(--surface-2)',
+          color: 'var(--text-primary)',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 12,
+          cursor: 'pointer',
+          maxWidth: 128,
+        }}
+      >
+        {INTENT_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="submit"
+        style={{
+          height: 30,
+          padding: '0 8px',
+          borderRadius: 6,
+          border: '1px solid var(--border-default)',
+          background: 'var(--accent-tint)',
+          color: 'var(--accent-400)',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Save
+      </button>
+    </form>
+  );
+}
+
 function Amount({ amount, currency }: { amount: number; currency: string }) {
   const positive = amount > 0;
   const displayAmount = currency === 'EUR' ? formatEUR(amount) : `${amount} ${currency}`;
@@ -290,6 +368,7 @@ export default async function TransactionsPage() {
               borderRadius: 12,
               color: 'var(--warning)',
               fontSize: 13,
+              flexWrap: 'wrap',
             }}
           >
             <span
@@ -315,6 +394,26 @@ export default async function TransactionsPage() {
             <span style={{ color: 'var(--text-tertiary)' }}>
               safe-to-spend reserve impact {formatEUR(unreviewedTotal)}
             </span>
+            <form action="/api/transactions/confirm-all" method="post" style={{ marginLeft: 'auto' }}>
+              <button
+                type="submit"
+                style={{
+                  height: 32,
+                  padding: '0 14px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border-default)',
+                  background: 'var(--surface-1)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Confirm all pending
+              </button>
+            </form>
           </div>
         ) : null}
 
@@ -335,7 +434,7 @@ export default async function TransactionsPage() {
               borderBottom: '1px solid var(--border-subtle)',
             }}
           >
-            {['Date', 'Account', 'Description', 'Amount', 'Intent', 'Status', 'Action'].map((heading) => (
+            {['Date', 'Account', 'Description', 'Amount', 'Intent', 'Status', 'Actions'].map((heading) => (
               <div
                 key={heading}
                 style={{
@@ -424,12 +523,11 @@ export default async function TransactionsPage() {
                       {statusLabel(row.reviewStatus)}
                     </span>
                   </div>
-                  <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <EditIntentForm transactionId={row.id} currentIntent={row.intent} />
                     {needsReview ? (
                       <ConfirmReviewButton transactionId={row.id} />
-                    ) : (
-                      <span style={{ color: 'var(--text-disabled)', fontSize: 12 }}>Trusted</span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );

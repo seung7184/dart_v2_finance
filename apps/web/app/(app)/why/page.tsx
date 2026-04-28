@@ -564,6 +564,11 @@ export default async function WhyPage() {
                 {formatEUR(viewModel.result.spendable_pool_cents)} spendable pool
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                Based on payday day {viewModel.currentPaydayDate.getUTCDate()}, there are{' '}
+                <span style={{ fontWeight: 600 }}>{viewModel.result.days_until_payday} days</span>{' '}
+                until next payday ({viewModel.paydayLabel}).
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 {formatEUR(viewModel.result.spendable_pool_cents)} ÷{' '}
                 {viewModel.result.days_until_payday} days until payday ({viewModel.paydayLabel}) ={' '}
                 <span style={{ color: 'var(--accent-400)', fontWeight: 600 }}>
@@ -583,7 +588,10 @@ export default async function WhyPage() {
                 }}
               >
                 Safe to spend is a conservative daily guide based on your cash, upcoming
-                obligations, and planned investing until payday.
+                obligations, and planned investing until payday. Trading 212 card spending
+                is counted as living expense. Deposits from ING default to transfer — not
+                investment contributions. Buys, sells, and dividends are tracked separately
+                and do not reduce your safe-to-spend number.
               </div>
             </div>
           </Section>

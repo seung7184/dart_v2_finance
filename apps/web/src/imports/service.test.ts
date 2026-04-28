@@ -222,7 +222,7 @@ describe('executeImport', () => {
         status: 'error',
       },
       {
-        reason: 'duplicate_in_database',
+        reason: 'Already imported (matched by date, amount, and description)',
         rowIndex: 2,
         status: 'duplicate',
       },
@@ -257,7 +257,8 @@ describe('executeImport', () => {
       accountId: 'account-t212',
       amount: 12567,
       externalId: 'new-id',
-      intent: 'investment_contribution',
+      // T212 Deposit maps to 'transfer' per Phase 1.5 policy (ING → T212 = transfer, not investment_contribution)
+      intent: 'transfer',
       reviewStatus: 'pending',
       source: 't212_csv',
     });

@@ -5,8 +5,12 @@ import { requireAuthenticatedAppUser } from '@/auth/session';
 import { getTransactionsRuntimeState } from '@/transactions/runtime';
 import { loadSafeToSpendSourceData } from '@/safe-to-spend/data';
 import { buildSafeToSpendViewModel, type SafeToSpendViewModel } from '@/safe-to-spend/view-model';
+import { loadAvailableMonths, loadMonthlyStats } from '@/safe-to-spend/monthly';
+import MonthSelector from './MonthSelector';
 
 export const dynamic = 'force-dynamic';
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function statCardStyle(): CSSProperties {
   return {
@@ -32,8 +36,8 @@ function eyebrowStyle(): CSSProperties {
 
 function centsParts(cents: number) {
   return {
-    euros: Math.floor(cents / 100),
-    cents: String(cents % 100).padStart(2, '0'),
+    euros: Math.floor(Math.abs(cents) / 100),
+    cents: String(Math.abs(cents) % 100).padStart(2, '0'),
   };
 }
 
@@ -112,14 +116,165 @@ function DatabaseUnavailable({ message }: { message: string | null }) {
   );
 }
 
-export default async function DashboardPage() {
+function MonthlyStatsCard({
+  stats,
+  isCurrentMonth,
+}: {
+  stats: Awaited<ReturnType<typeof loadMonthlyStats>>;
+  isCurrentMonth: boolean;
+}) {
+  const monthLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(stats.year, stats.month - 1, 1)));
+
+  const spendParts = centsParts(stats.reviewedSpendingCents);
+  const spendPerDayParts = centsParts(stats.actualSpendPerDayCents);
+
+  return (
+    <div
+      style={{
+        background: 'var(--surface-1)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 16,
+        padding: '24px 28px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 16,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={eyebrowStyle()}>
+          {monthLabel} · Monthly overview
+        </div>
+        {isCurrentMonth && (
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              padding: '2px 8px',
+              borderRadius: 999,
+              background: 'var(--accent-tint)',
+              color: 'var(--accent-400)',
+            }}
+          >
+            Current month
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+        <div style={statCardStyle()}>
+          <div style={eyebrowStyle()}>Reviewed spending</div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            € {spendParts.euros}
+            <span style={{ opacity: 0.55, fontWeight: 500, fontSize: 16 }}>,{spendParts.cents}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+            {stats.reviewedSpendingCount} transactions
+          </div>
+        </div>
+
+        <div style={statCardStyle()}>
+          <div style={eyebrowStyle()}>Reviewed inflows</div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: 'var(--positive)',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {formatEUR(stats.reviewedInflowCents)}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+            Salary, dividends, refunds
+          </div>
+        </div>
+
+        <div style={statCardStyle()}>
+          <div style={eyebrowStyle()}>
+            {isCurrentMonth ? 'Actual spend/day so far' : 'Actual avg spend/day'}
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            € {spendPerDayParts.euros}
+            <span style={{ opacity: 0.55, fontWeight: 500, fontSize: 16 }}>,{spendPerDayParts.cents}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+            {isCurrentMonth
+              ? `Over ${stats.daysElapsed} elapsed day${stats.daysElapsed !== 1 ? 's' : ''}`
+              : `Over ${stats.daysInMonth} days`}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: '10px 14px',
+          background: 'var(--surface-2)',
+          borderRadius: 8,
+          fontSize: 12,
+          color: 'var(--text-tertiary)',
+          lineHeight: 1.5,
+        }}
+      >
+        {isCurrentMonth
+          ? 'Actual spend/day = reviewed living spending so far ÷ elapsed days in current month. Safe remaining/day is shown separately above.'
+          : 'Actual avg spend/day = total reviewed living spending ÷ calendar days in that month. Based on reviewed transactions only.'}
+      </div>
+    </div>
+  );
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
   const userId = await requireAuthenticatedAppUser();
   const runtimeState = getTransactionsRuntimeState(process.env);
+  const today = new Date();
+
   const viewModel = runtimeState.databaseConfigured
     ? buildSafeToSpendViewModel(await loadSafeToSpendSourceData(userId))
     : null;
 
   const dailyParts = viewModel?.status === 'ready' ? centsParts(viewModel.result.value_cents) : null;
+
+  // Month selector
+  const currentYear = today.getUTCFullYear();
+  const currentMonth = today.getUTCMonth() + 1;
+
+  const selectedYearRaw = typeof params['year'] === 'string' ? parseInt(params['year'], 10) : NaN;
+  const selectedMonthRaw = typeof params['month'] === 'string' ? parseInt(params['month'], 10) : NaN;
+
+  const selectedYear = Number.isFinite(selectedYearRaw) ? selectedYearRaw : currentYear;
+  const selectedMonth = Number.isFinite(selectedMonthRaw) ? selectedMonthRaw : currentMonth;
+  const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
+
+  const [availableMonths, monthlyStats] = runtimeState.databaseConfigured
+    ? await Promise.all([
+        loadAvailableMonths(userId, today),
+        loadMonthlyStats(userId, selectedYear, selectedMonth, today),
+      ])
+    : [[], null];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -143,24 +298,34 @@ export default async function DashboardPage() {
               : 'Real safe-to-spend estimate'}
           </div>
         </div>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            padding: '3px 9px',
-            borderRadius: 999,
-            background: 'var(--accent-tint)',
-            color: 'var(--accent-400)',
-          }}
-        >
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
-          Beta
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Month selector */}
+          {availableMonths.length > 0 && (
+            <MonthSelector
+              options={availableMonths}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+            />
+          )}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              padding: '3px 9px',
+              borderRadius: 999,
+              background: 'var(--accent-tint)',
+              color: 'var(--accent-400)',
+            }}
+          >
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
+            Beta
+          </span>
+        </div>
       </div>
 
       {!runtimeState.databaseConfigured ? (
@@ -186,122 +351,137 @@ export default async function DashboardPage() {
             </div>
           ) : null}
 
-          <div
-            style={{
-              background: 'var(--surface-1)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 16,
-              padding: '28px 32px',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div>
-              <div style={eyebrowStyle()}>Safe to spend today · per day</div>
+          {/* Monthly stats slicer — only shown when current month is selected */}
+          {monthlyStats && isCurrentMonth && (
+            <MonthlyStatsCard stats={monthlyStats} isCurrentMonth={true} />
+          )}
+
+          {/* Monthly stats slicer — historical month */}
+          {monthlyStats && !isCurrentMonth && (
+            <MonthlyStatsCard stats={monthlyStats} isCurrentMonth={false} />
+          )}
+
+          {/* Safe-to-spend hero — always shown (only meaningful for current period) */}
+          {isCurrentMonth && (
+            <>
               <div
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'baseline',
-                  gap: 6,
-                  marginTop: 12,
-                  fontVariantNumeric: 'tabular-nums',
-                  fontFeatureSettings: '"tnum","ss01"',
-                  fontWeight: 600,
-                  letterSpacing: '-0.04em',
-                  lineHeight: 0.96,
-                  color: 'var(--text-primary)',
+                  background: 'var(--surface-1)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 16,
+                  padding: '28px 32px',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'space-between',
                 }}
               >
-                <span style={{ fontSize: 28, color: 'var(--text-tertiary)', fontWeight: 500 }}>€</span>
-                <span style={{ fontSize: 64 }}>
-                  {dailyParts?.euros}
-                  <span style={{ opacity: 0.55, fontWeight: 500 }}>,{dailyParts?.cents}</span>
-                </span>
+                <div>
+                  <div style={eyebrowStyle()}>Safe to spend today · per day</div>
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'baseline',
+                      gap: 6,
+                      marginTop: 12,
+                      fontVariantNumeric: 'tabular-nums',
+                      fontFeatureSettings: '"tnum","ss01"',
+                      fontWeight: 600,
+                      letterSpacing: '-0.04em',
+                      lineHeight: 0.96,
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    <span style={{ fontSize: 28, color: 'var(--text-tertiary)', fontWeight: 500 }}>€</span>
+                    <span style={{ fontSize: 64 }}>
+                      {dailyParts?.euros}
+                      <span style={{ opacity: 0.55, fontWeight: 500 }}>,{dailyParts?.cents}</span>
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 14, fontSize: 13, color: 'var(--text-secondary)' }}>
+                    Pool of {formatEUR(viewModel.result.spendable_pool_cents)} ÷{' '}
+                    {viewModel.result.days_until_payday} days ·{' '}
+                    <Link href="/why" style={{ color: 'var(--accent-400)', fontWeight: 500 }}>
+                      See breakdown →
+                    </Link>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'right' }}>
+                  <div>Last updated</div>
+                  <div style={{ color: 'var(--text-secondary)', fontWeight: 500, marginTop: 2 }}>
+                    {viewModel.computedAtLabel}
+                  </div>
+                </div>
               </div>
-              <div style={{ marginTop: 14, fontSize: 13, color: 'var(--text-secondary)' }}>
-                Pool of {formatEUR(viewModel.result.spendable_pool_cents)} ÷{' '}
-                {viewModel.result.days_until_payday} days ·{' '}
-                <Link href="/why" style={{ color: 'var(--accent-400)', fontWeight: 500 }}>
-                  See breakdown →
-                </Link>
-              </div>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'right' }}>
-              <div>Last updated</div>
-              <div style={{ color: 'var(--text-secondary)', fontWeight: 500, marginTop: 2 }}>
-                {viewModel.computedAtLabel}
-              </div>
-            </div>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            <div style={statCardStyle()}>
-              <div style={eyebrowStyle()}>Available cash</div>
-              <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                {formatEUR(viewModel.result.available_cash_cents)}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+                <div style={statCardStyle()}>
+                  <div style={eyebrowStyle()}>Available cash</div>
+                  <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                    {formatEUR(viewModel.result.available_cash_cents)}
+                  </div>
+                </div>
+                <div style={statCardStyle()}>
+                  <div style={eyebrowStyle()}>Protected obligations</div>
+                  <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                    {formatEUR(viewModel.result.protected_obligations.total_cents)}
+                  </div>
+                </div>
+                <div style={statCardStyle()}>
+                  <div style={eyebrowStyle()}>Investing protected</div>
+                  <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--accent-400)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+                    {formatEUR(viewModel.result.investing_cents)}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style={statCardStyle()}>
-              <div style={eyebrowStyle()}>Protected obligations</div>
-              <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                {formatEUR(viewModel.result.protected_obligations.total_cents)}
-              </div>
-            </div>
-            <div style={statCardStyle()}>
-              <div style={eyebrowStyle()}>Investing protected</div>
-              <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--accent-400)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-                {formatEUR(viewModel.result.investing_cents)}
-              </div>
-            </div>
-          </div>
 
-          <div
-            style={{
-              background: 'var(--surface-1)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 12,
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                padding: '14px 20px',
-                borderBottom: '1px solid var(--border-subtle)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div style={eyebrowStyle()}>Next bills before payday</div>
-              <Link href="/why" style={{ fontSize: 12, color: 'var(--accent-400)' }}>View all →</Link>
-            </div>
-            {viewModel.upcomingBills.length === 0 ? (
-              <div style={{ padding: '18px 20px', color: 'var(--text-tertiary)', fontSize: 13 }}>
-                No recurring bills are scheduled before {viewModel.paydayLabel}.
-              </div>
-            ) : (
-              viewModel.upcomingBills.slice(0, 4).map((bill, i) => (
+              <div
+                style={{
+                  background: 'var(--surface-1)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                }}
+              >
                 <div
-                  key={bill.id}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto auto',
-                    alignItems: 'center',
-                    gap: 20,
                     padding: '14px 20px',
-                    borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                   }}
                 >
-                  <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{bill.name}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>{bill.dateLabel}</span>
-                  <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                    {formatEUR(bill.amountCents)}
-                  </span>
+                  <div style={eyebrowStyle()}>Next bills before payday</div>
+                  <Link href="/why" style={{ fontSize: 12, color: 'var(--accent-400)' }}>View all →</Link>
                 </div>
-              ))
-            )}
-          </div>
+                {viewModel.upcomingBills.length === 0 ? (
+                  <div style={{ padding: '18px 20px', color: 'var(--text-tertiary)', fontSize: 13 }}>
+                    No recurring bills are scheduled before {viewModel.paydayLabel}.
+                  </div>
+                ) : (
+                  viewModel.upcomingBills.slice(0, 4).map((bill, i) => (
+                    <div
+                      key={bill.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto auto',
+                        alignItems: 'center',
+                        gap: 20,
+                        padding: '14px 20px',
+                        borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)',
+                      }}
+                    >
+                      <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{bill.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontVariantNumeric: 'tabular-nums' }}>{bill.dateLabel}</span>
+                      <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                        {formatEUR(bill.amountCents)}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Link

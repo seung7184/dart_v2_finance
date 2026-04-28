@@ -323,9 +323,12 @@ export async function executeImport(
 
     if (existingTransaction) {
       duplicateCount += 1;
+      const dupReason = row.external_id
+        ? `Already imported (external ID: ${row.external_id})`
+        : 'Already imported (matched by date, amount, and description)';
       await repository.createImportRow({
         importBatchId: createdBatch.id,
-        parseError: 'duplicate_in_database',
+        parseError: dupReason,
         parseStatus: 'duplicate',
         rawData: row.raw_data,
         rowIndex: row.row_index,
@@ -333,7 +336,7 @@ export async function executeImport(
         userId: account.userId,
       });
       skippedRows.push({
-        reason: 'duplicate_in_database',
+        reason: dupReason,
         rowIndex: row.row_index,
         status: 'duplicate',
       });

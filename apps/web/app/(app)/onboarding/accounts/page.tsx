@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { Button, Card } from '@dart/ui';
-import { CompleteOnboardingButton } from '@/observability/CompleteOnboardingButton';
+import { Button } from '@dart/ui';
+import { completeOnboardingAction } from '@/onboarding/actions';
 import { OnboardingLayout } from '../_components';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -36,11 +36,11 @@ export default async function AccountsPage({
   return (
     <OnboardingLayout
       step={4}
-      title="Confirm the V1 account mix"
-      description="V1 supports ING and Trading 212 only. Finish by confirming the account surfaces you want to import first, then continue to the dashboard."
+      title="Confirm your account setup"
+      description="ING and Trading 212 accounts will be created automatically. Import your CSV after onboarding to load your transactions."
     >
       <div style={{ display: 'grid', gap: '18px' }}>
-        <Card
+        <div
           style={{
             display: 'grid',
             gap: '16px',
@@ -84,7 +84,7 @@ export default async function AccountsPage({
               </p>
               <h3 style={{ marginTop: '6px', fontSize: 'var(--text-xl)' }}>Trading 212</h3>
               <p style={{ marginTop: '8px', color: 'var(--color-text-muted)' }}>
-                Investment contributions stay visible without being treated as living spend.
+                Card spending defaults to living expense. Deposits default to transfer — edit if needed.
               </p>
             </div>
           </div>
@@ -107,28 +107,37 @@ export default async function AccountsPage({
             <p>Planned investing: {investing} cents</p>
             <p>Protection: {protection === 'on' ? 'On' : 'Off'}</p>
           </div>
-        </Card>
-
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '12px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <Link
-            href={buildBackHref(payday, income, investing, protection)}
-            style={{ textDecoration: 'none' }}
-          >
-            <Button variant="ghost" type="button">
-              Back
-            </Button>
-          </Link>
-
-          <CompleteOnboardingButton />
         </div>
+
+        <form action={completeOnboardingAction}>
+          <input type="hidden" name="payday" value={payday} />
+          <input type="hidden" name="income" value={income} />
+          <input type="hidden" name="investing" value={investing} />
+          <input type="hidden" name="protection" value={protection} />
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Link
+              href={buildBackHref(payday, income, investing, protection)}
+              style={{ textDecoration: 'none' }}
+            >
+              <Button variant="ghost" type="button">
+                Back
+              </Button>
+            </Link>
+
+            <Button type="submit">
+              Finish onboarding
+            </Button>
+          </div>
+        </form>
       </div>
     </OnboardingLayout>
   );
