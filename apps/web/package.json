@@ -11,8 +11,8 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@dart/csv-parsers": "workspace:*",
     "@dart/core": "workspace:*",
+    "@dart/csv-parsers": "workspace:*",
     "@dart/db": "workspace:*",
     "@dart/ui": "workspace:*",
     "drizzle-orm": "^0.30.0",
@@ -25,6 +25,8 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^15.5.15",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   }

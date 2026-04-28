@@ -143,7 +143,7 @@ export default function BetaPage() {
             Request beta access
           </h1>
           <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            ING + Trading 212 only for V1. We'll email you when your spot opens.
+            ING + Trading 212 only for V1. We&apos;ll email you when your spot opens.
           </p>
         </div>
 
@@ -160,13 +160,13 @@ export default function BetaPage() {
             }}
           >
             <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--positive)' }}>
-              You're on the list
+              You&apos;re on the list
             </p>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
               Ticket: <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{submissionState.ticketId}</span>
             </p>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              We'll reach out when your spot opens. No spam.
+              We&apos;ll reach out when your spot opens. No spam.
             </p>
           </div>
         ) : (

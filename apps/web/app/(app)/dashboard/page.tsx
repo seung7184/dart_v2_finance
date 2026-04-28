@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { formatEUR } from '@dart/core';
 import { requireAuthenticatedAppUser } from '@/auth/session';
-import { getTransactionsRuntimeState } from '@/transactions/runtime';
+import { getDatabaseRuntimeErrorMessage, getTransactionsRuntimeState } from '@/transactions/runtime';
 import { loadSafeToSpendSourceData } from '@/safe-to-spend/data';
 import { buildSafeToSpendViewModel, type SafeToSpendViewModel } from '@/safe-to-spend/view-model';
 import { loadAvailableMonths, loadMonthlyCategoryBreakdown, loadMonthlyStats } from '@/safe-to-spend/monthly';
@@ -409,12 +409,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const runtimeState = getTransactionsRuntimeState(process.env);
   const today = new Date();
 
-  const viewModel = runtimeState.databaseConfigured
-    ? buildSafeToSpendViewModel(await loadSafeToSpendSourceData(userId))
-    : null;
-
-  const dailyParts = viewModel?.status === 'ready' ? centsParts(viewModel.result.value_cents) : null;
-
   // Month selector
   const currentYear = today.getUTCFullYear();
   const currentMonth = today.getUTCMonth() + 1;
@@ -426,14 +420,35 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const selectedMonth = Number.isFinite(selectedMonthRaw) ? selectedMonthRaw : currentMonth;
   const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
 
-  const [availableMonths, monthlyStats, categoryBreakdown, merchantInsights] = runtimeState.databaseConfigured
-    ? await Promise.all([
-        loadAvailableMonths(userId, today),
-        loadMonthlyStats(userId, selectedYear, selectedMonth, today),
-        loadMonthlyCategoryBreakdown(userId, selectedYear, selectedMonth),
-        loadMerchantInsights(userId, selectedYear, selectedMonth),
-      ])
-    : [[], null, [], null];
+  let databaseErrorMessage = runtimeState.message;
+  let viewModel: SafeToSpendViewModel | null = null;
+  let availableMonths: Array<{ year: number; month: number; label: string }> = [];
+  let monthlyStats: Awaited<ReturnType<typeof loadMonthlyStats>> | null = null;
+  let categoryBreakdown: Awaited<ReturnType<typeof loadMonthlyCategoryBreakdown>> = [];
+  let merchantInsights: MerchantInsights | null = null;
+
+  if (runtimeState.databaseConfigured) {
+    try {
+      const [sourceData, loadedAvailableMonths, loadedMonthlyStats, loadedCategoryBreakdown, loadedMerchantInsights] =
+        await Promise.all([
+          loadSafeToSpendSourceData(userId),
+          loadAvailableMonths(userId, today),
+          loadMonthlyStats(userId, selectedYear, selectedMonth, today),
+          loadMonthlyCategoryBreakdown(userId, selectedYear, selectedMonth),
+          loadMerchantInsights(userId, selectedYear, selectedMonth),
+        ]);
+
+      viewModel = buildSafeToSpendViewModel(sourceData);
+      availableMonths = loadedAvailableMonths;
+      monthlyStats = loadedMonthlyStats;
+      categoryBreakdown = loadedCategoryBreakdown;
+      merchantInsights = loadedMerchantInsights;
+    } catch (error) {
+      databaseErrorMessage = getDatabaseRuntimeErrorMessage(error);
+    }
+  }
+
+  const dailyParts = viewModel?.status === 'ready' ? centsParts(viewModel.result.value_cents) : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -488,9 +503,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       </div>
 
       {!runtimeState.databaseConfigured ? (
-        <DatabaseUnavailable message={runtimeState.message} />
+        <DatabaseUnavailable message={databaseErrorMessage} />
       ) : !viewModel ? (
-        <DatabaseUnavailable message={runtimeState.message} />
+        <DatabaseUnavailable message={databaseErrorMessage} />
       ) : viewModel?.status !== 'ready' ? (
         <EmptyState viewModel={viewModel} />
       ) : (

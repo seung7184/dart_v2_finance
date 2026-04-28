@@ -19,21 +19,7 @@
 
 If you want a clean slate for a specific user:
 
-```sql
--- Run in Supabase SQL editor or psql
-DELETE FROM transactions WHERE user_id = '<your-test-user-id>';
-DELETE FROM import_rows WHERE user_id = '<your-test-user-id>';
-DELETE FROM import_batches WHERE user_id = '<your-test-user-id>';
-DELETE FROM accounts WHERE user_id = '<your-test-user-id>';
-UPDATE users
-  SET payday_day = NULL,
-      expected_monthly_income = NULL,
-      planned_investing_protected = TRUE,
-      onboarding_completed = FALSE,
-      updated_at = now()
-  WHERE id = '<your-test-user-id>';
-DELETE FROM budget_periods WHERE user_id = '<your-test-user-id>';
-```
+Use `docs/sql/reset_test_user_app_data.sql` for the current schema. Replace `PASTE_USER_UUID_HERE` with the test user's UUID, then run it only against local/dev Supabase.
 
 ---
 

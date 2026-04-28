@@ -40,3 +40,9 @@ WHERE user_id = '<your-test-user-id>'
 ORDER BY occurred_at DESC
 LIMIT 20;
 ```
+
+## Reset Local Test User Data
+
+Use `docs/sql/reset_test_user_app_data.sql` to reset one local/dev test user's app data. Replace `PASTE_USER_UUID_HERE` with the test user's UUID before running it.
+
+The script is local/dev only, keeps `auth.users`, and includes verification queries.

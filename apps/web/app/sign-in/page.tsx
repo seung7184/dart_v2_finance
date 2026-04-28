@@ -127,7 +127,7 @@ export default function SignInPage() {
             Sign in
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
-            We'll send a one-time link to your email.
+            We&apos;ll send a one-time link to your email.
           </p>
         </div>
 

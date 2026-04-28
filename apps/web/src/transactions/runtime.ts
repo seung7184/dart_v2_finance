@@ -22,3 +22,13 @@ export function getTransactionsRuntimeState(
     message: null,
   };
 }
+
+export function getDatabaseRuntimeErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) {
+    return 'Database host could not be resolved. Check DATABASE_URL in .env.local, then restart the web server.';
+  }
+
+  return 'Database connection failed. Check DATABASE_URL and Supabase status, then restart the web server.';
+}
