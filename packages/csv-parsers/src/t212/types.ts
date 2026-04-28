@@ -11,6 +11,8 @@ export interface T212RawRow {
   'Exchange rate': string;
   Total: string;
   ID: string;               // external_id
+  'Merchant name'?: string; // present on Card debit/credit rows
+  'Merchant category'?: string; // present on Card debit/credit rows (e.g. 'RETAIL_STORES')
 }
 
 export const T212_REQUIRED_COLUMNS: string[] = [

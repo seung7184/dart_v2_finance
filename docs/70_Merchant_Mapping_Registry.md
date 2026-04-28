@@ -53,13 +53,27 @@ type MerchantSuggestion = {
 
 When a CSV row is imported (`executeImport` in `apps/web/src/imports/service.ts`):
 
-1. `suggestFromMerchantName(row.raw_description)` is called
-2. If a suggestion is returned:
-   - `merchantName` is set on the transaction record
-   - `categoryId` is resolved from `categories` table by the suggested category name
-   - The suggested intent overrides a missing `intent_hint` (e.g. ING rows have no hint)
-   - The CSV parser's own `intent_hint` (T212) takes precedence over the suggestion
-3. The user can override any of these in the Transactions review screen
+1. **T212 Card debit rows** carry actual `Merchant name` and `Merchant category` columns from the CSV.
+   These are stored directly as `merchant_name` and `merchant_category` on the transaction.
+2. **Registry lookup** (`suggestFromMerchantName`) runs against the CSV merchant name if present,
+   otherwise against the raw description (ING rows, non-card T212 rows).
+3. The **persisted `merchant_name`** is:
+   - The CSV merchant name (T212 Card debit) if available, **or**
+   - The registry-matched canonical name (e.g. "Albert Heijn"), **or**
+   - `null` if no match is found.
+4. `normalized_merchant_name` is always derived from the final `merchant_name`:
+   lowercase → trim → collapse repeated spaces.
+5. `merchant_category` is persisted as-is from the T212 CSV (e.g. `RETAIL_STORES`).
+   ING rows have `null` for this field.
+6. `categoryId` is resolved from the `categories` table using the registry suggestion's category name.
+7. The suggested intent overrides a missing `intent_hint`; T212 `intent_hint` always takes precedence.
+8. The user can override merchant name, category, and intent in the Transactions review screen.
+
+### Existing Import Data (pre-2026-04-28)
+Transactions imported before migration `0004_merchant_fields` was applied will have
+`merchant_category = null` and `normalized_merchant_name = null`.
+A fresh re-import after a data reset will persist all merchant fields correctly.
+Duplicate detection is unaffected by the new columns.
 
 ---
 

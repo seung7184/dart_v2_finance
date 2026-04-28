@@ -1,6 +1,6 @@
 # 61 — Localhost End-to-End QA Checklist
 
-**Last updated**: 2026-04-27  
+**Last updated**: 2026-04-28  
 **Owner**: Seungjae  
 **Purpose**: Manual QA script for verifying the full beta flow locally before any private beta release.
 
@@ -575,7 +575,52 @@ For ING rows like "Spending cashback":
 
 ---
 
-## Updated GO / NO-GO for Phase 1.7 + Beta Hardening
+---
+
+### 30. Merchant persistence — T212 import
+
+Requires a T212 CSV with Card debit rows (column headers include `Merchant name` and `Merchant category`).
+
+1. Reset test data (step 0)
+2. Import a fresh T212 CSV containing at least one Card debit row
+3. Open Supabase Table Editor → `transactions` table
+4. Locate a Card debit row
+5. **Expected**:
+   - `merchant_name` is not null (e.g. `DIRK VDBROEK FIL4103`)
+   - `merchant_category` is not null (e.g. `RETAIL_STORES`)
+   - `normalized_merchant_name` is lowercase + trimmed form of merchant_name (e.g. `dirk vdbroek fil4103`)
+6. Navigate to `/transactions`
+7. **Expected**: Card debit rows show merchant name below the description (e.g. `merchant: DIRK VDBROEK FIL4103`)
+
+**Failure symptom**: `merchant_name` is null → migration 0004 not applied, or parser not extracting columns.
+
+---
+
+### 31. Merchant persistence — existing data note
+
+Transactions imported before migration `0004_merchant_fields` was applied will have
+`merchant_category = null` and `normalized_merchant_name = null`.
+This is expected behaviour — no backfill is performed automatically.
+A fresh re-import after a data reset will persist all merchant fields correctly.
+
+---
+
+### 32. Dashboard merchant insights use merchant names
+
+After a fresh T212 import with Card debit rows, mark the relevant transactions as reviewed (intent: living_expense).
+
+1. Navigate to `/dashboard`
+2. Scroll to the Merchant Insights card (or the month in question)
+3. **Expected**:
+   - Top merchants list shows actual merchant names (not just null/blank rows)
+   - Merchants that appear in ≥2 of the 3 rolling months are listed as recurring
+4. If previous imports had no merchant names, re-import after a data reset for accurate results
+
+**Failure symptom**: All top-merchant rows blank → `merchant_name` not persisted on new import.
+
+---
+
+## Updated GO / NO-GO for Phase 1.7 + Beta Hardening + Merchant Persistence Fix
 
 | Area | Status |
 |------|--------|
@@ -585,3 +630,6 @@ For ING rows like "Spending cashback":
 | Fresh-user onboarding redirect (Hardening 2) | ✅ Implemented — test with step 27 |
 | No UUID in UX (Hardening 3) | ✅ Implemented — test with step 28 |
 | Observability verification path (Hardening 4) | ⚠️ Owner verification needed — test with step 29 |
+| T212 merchant_name + merchant_category persisted | ✅ Implemented — test with step 30 |
+| Transactions UI shows merchant under description | ✅ Implemented — test with step 30 |
+| Dashboard merchant insights use persisted names | ✅ Implemented — test with step 32 |

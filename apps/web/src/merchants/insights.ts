@@ -47,9 +47,14 @@ export async function loadMerchantInsights(
   const monthEnd = endOfMonth(year, month);
 
   // ── Top merchants for the selected month ──────────────────────────────────
+  // Group by normalized_merchant_name when available, falling back to merchant_name.
+  // This ensures consistent grouping across re-imports and minor name variations.
+  const groupKey = sql<string>`COALESCE(${transactions.normalizedMerchantName}, ${transactions.merchantName})`;
+
   const merchantRows = await database
     .select({
-      merchantName: transactions.merchantName,
+      groupKey,
+      displayName: transactions.merchantName,
       amountCents: sql<number>`SUM(ABS(${transactions.amount}))`.mapWith(Number),
       transactionCount: sql<number>`COUNT(*)`.mapWith(Number),
     })
@@ -64,15 +69,15 @@ export async function loadMerchantInsights(
         inArray(transactions.intent, [...LIVING_EXPENSE_INTENTS]),
       ),
     )
-    .groupBy(transactions.merchantName)
+    .groupBy(groupKey, transactions.merchantName)
     .orderBy(sql`SUM(ABS(${transactions.amount})) DESC`);
 
   const totalSpendCents = merchantRows.reduce((sum, r) => sum + r.amountCents, 0);
 
-  // Split into named merchants and unnamed (null merchantName) to compute concentration
-  const namedRows = merchantRows.filter((r) => r.merchantName !== null);
+  // Only rows with a non-null group key (i.e. some merchant identifier) qualify as named
+  const namedRows = merchantRows.filter((r) => r.groupKey !== null);
   const topMerchants: TopMerchant[] = namedRows.slice(0, 10).map((r) => ({
-    merchantName: r.merchantName as string,
+    merchantName: r.displayName ?? (r.groupKey as string),
     amountCents: r.amountCents,
     transactionCount: r.transactionCount,
     concentrationPct:
@@ -97,6 +102,7 @@ export async function loadMerchantInsights(
   const rollingRows = await database
     .select({
       merchantName: transactions.merchantName,
+      normalizedMerchantName: transactions.normalizedMerchantName,
       occurredAt: transactions.occurredAt,
     })
     .from(transactions)
@@ -110,15 +116,16 @@ export async function loadMerchantInsights(
       ),
     );
 
-  // Count distinct months each merchant appears in
+  // Count distinct months each merchant appears in; use normalized name for grouping
   const merchantMonthSets = new Map<string, Set<string>>();
   for (const row of rollingRows) {
-    if (!row.merchantName) continue;
-    const key = `${row.occurredAt.getUTCFullYear()}-${row.occurredAt.getUTCMonth() + 1}`;
-    if (!merchantMonthSets.has(row.merchantName)) {
-      merchantMonthSets.set(row.merchantName, new Set());
+    const key = row.normalizedMerchantName ?? row.merchantName;
+    if (!key) continue;
+    const monthKey = `${row.occurredAt.getUTCFullYear()}-${row.occurredAt.getUTCMonth() + 1}`;
+    if (!merchantMonthSets.has(key)) {
+      merchantMonthSets.set(key, new Set());
     }
-    merchantMonthSets.get(row.merchantName)!.add(key);
+    merchantMonthSets.get(key)!.add(monthKey);
   }
 
   const recurringMerchants = Array.from(merchantMonthSets.entries())

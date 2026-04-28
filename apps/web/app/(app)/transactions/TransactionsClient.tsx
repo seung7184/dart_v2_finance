@@ -34,6 +34,7 @@ export type TransactionRow = {
   categoryName: string | null;
   occurredAt: Date;
   rawDescription: string;
+  merchantName: string | null;
   reviewStatus: ReviewStatus;
   source: string;
 };
@@ -724,32 +725,49 @@ export default function TransactionsClient({
                     {row.accountName}
                   </div>
 
-                  {/* Description — clickable to filter */}
-                  <button
-                    type="button"
-                    title={`Filter by: ${row.rawDescription}`}
-                    onClick={() => {
-                      setFilterDesc(row.rawDescription);
-                      setSelected(new Set());
-                    }}
-                    style={{
-                      minWidth: 0,
-                      fontSize: 13,
-                      color: 'var(--text-primary)',
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontFamily: 'var(--font-sans)',
-                    }}
-                  >
-                    {row.rawDescription}
-                  </button>
+                  {/* Description — clickable to filter; merchant shown below when present */}
+                  <div style={{ minWidth: 0 }}>
+                    <button
+                      type="button"
+                      title={`Filter by: ${row.rawDescription}`}
+                      onClick={() => {
+                        setFilterDesc(row.rawDescription);
+                        setSelected(new Set());
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        fontSize: 13,
+                        color: 'var(--text-primary)',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontFamily: 'var(--font-sans)',
+                      }}
+                    >
+                      {row.rawDescription}
+                    </button>
+                    {row.merchantName && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--text-tertiary)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          marginTop: 2,
+                        }}
+                      >
+                        merchant: {row.merchantName}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Amount */}
                   <div style={{ textAlign: 'right' }}>
