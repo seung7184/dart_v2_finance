@@ -1,0 +1,220 @@
+/* ============================================================
+   Dart Finance — Design Tokens
+   Dark mode primary. Light mode secondary.
+   ============================================================ */
+
+:root {
+  /* ----- Color: Surface (near-black, no pure black) ----- */
+  --surface-0: #0A0A0B;   /* canvas */
+  --surface-1: #111114;   /* cards, raised */
+  --surface-2: #17171C;   /* input, hovered list row */
+  --surface-3: #1E1E24;   /* modal, strong raise */
+  --surface-4: #26262E;   /* borders emphasized */
+
+  /* ----- Color: Border ----- */
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-default: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
+
+  /* ----- Color: Text ----- */
+  --text-primary: #FFFFFF;       /* the number itself */
+  --text-secondary: #B4B4BE;     /* labels, body */
+  --text-tertiary: #6C6C78;      /* metadata, captions */
+  --text-disabled: #44444C;
+  --text-inverse: #0A0A0B;
+
+  /* ----- Color: Accent (single blue) ----- */
+  --accent-500: #3B82F6;         /* primary accent — only for interactive */
+  --accent-400: #60A5FA;         /* hover */
+  --accent-600: #2563EB;         /* pressed */
+  --accent-tint: rgba(59,130,246,0.12);
+  --accent-ring: rgba(59,130,246,0.32);
+
+  /* ----- Color: Semantic (muted) ----- */
+  --positive: #6EE7B7;           /* gains — cool mint, not flashy green */
+  --positive-tint: rgba(110,231,183,0.10);
+  --negative: #F2A8A8;           /* losses — muted dusty rose, never red alarm */
+  --negative-tint: rgba(242,168,168,0.10);
+  --warning: #E6C27A;            /* muted amber */
+  --warning-tint: rgba(230,194,122,0.10);
+
+  /* ----- Type ----- */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* Type scale — numbers are hero, so display sizes go large */
+  --text-display-2xl: 80px;   /* hero number on mobile home */
+  --text-display-xl:  64px;
+  --text-display-lg:  48px;
+  --text-display-md:  36px;
+  --text-display-sm:  28px;
+  --text-heading-lg:  22px;
+  --text-heading-md:  18px;
+  --text-heading-sm:  16px;
+  --text-body-lg:     17px;
+  --text-body:        15px;
+  --text-body-sm:     13px;
+  --text-caption:     12px;
+  --text-overline:    11px;
+
+  /* Line heights — tight for numbers, comfortable for prose */
+  --lh-display: 1.02;
+  --lh-heading: 1.20;
+  --lh-body:    1.50;
+  --lh-tight:   1.10;
+
+  /* Weights — restrained, only what's needed */
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold:600;
+  --weight-bold:    700;
+
+  /* Letter spacing — tighten large numbers */
+  --tracking-display: -0.03em;
+  --tracking-heading: -0.02em;
+  --tracking-body:    -0.005em;
+  --tracking-overline: 0.08em;
+
+  /* ----- Spacing (4px base) ----- */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+
+  /* ----- Radii ----- */
+  --radius-xs: 4px;   /* chips, inline code */
+  --radius-sm: 8px;   /* inputs, buttons */
+  --radius-md: 12px;  /* cards */
+  --radius-lg: 16px;  /* modals, hero cards */
+  --radius-xl: 24px;  /* mobile sheets */
+  --radius-pill: 9999px;
+
+  /* ----- Shadows (restrained) ----- */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.30);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.40);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.55);
+  --shadow-ring-focus: 0 0 0 3px var(--accent-ring);
+
+  /* ----- Motion ----- */
+  --duration-instant: 80ms;
+  --duration-fast:    140ms;
+  --duration-normal:  220ms;
+  --duration-slow:    360ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* ----- Layout ----- */
+  --container-max: 1200px;
+  --mobile-max:    390px;
+  --grid-gutter:   24px;
+
+  /* ----- Touch targets ----- */
+  --touch-min: 44px;
+
+  color-scheme: dark;
+}
+
+/* ----- Light mode (secondary) ----- */
+[data-theme="light"] {
+  /* Surfaces — warm off-white canvas */
+  --surface-0: #F6F5F3;
+  --surface-1: #FFFFFF;
+  --surface-2: #EFEDE9;
+  --surface-3: #FFFFFF;
+  --surface-4: #E2DDD8;
+  --surface-sidebar: #FFFFFF;
+
+  /* Borders */
+  --border-subtle: #ECE9E5;
+  --border-default: #E2DDD8;
+  --border-strong: #C8C2BB;
+
+  /* Text */
+  --text-primary: #0F0E0D;
+  --text-secondary: #6B6560;
+  --text-tertiary: #A09890;
+  --text-disabled: #C8C2BB;
+  --text-inverse: #FFFFFF;
+  --hero-number: #0F0E0D;
+
+  /* Accent */
+  --accent-500: #3B7BF8;
+  --accent-400: #5C92FA;
+  --accent-600: #1D4ED8;
+  --accent-subtle: #EBF1FE;
+  --accent-tint: #EBF1FE;
+  --accent-ring: rgba(59,123,248,0.28);
+
+  /* Semantic */
+  --positive: #16A34A;
+  --positive-subtle: #F0FDF4;
+  --positive-tint: #F0FDF4;
+  --negative: #C4636A;
+  --negative-subtle: #FFF1F2;
+  --negative-tint: #FFF1F2;
+  --warning: #D97706;
+  --warning-subtle: #FFFBEB;
+  --warning-tint: #FFFBEB;
+
+  /* Pills */
+  --pill-beta-bg: #EBF1FE; --pill-beta-dot: #3B7BF8; --pill-beta-text: #1D4ED8;
+  --pill-local-bg: #EBF1FE; --pill-local-dot: #3B7BF8; --pill-local-text: #1D4ED8;
+  --pill-readonly-bg: #F3F2F0; --pill-readonly-dot: #9CA3AF; --pill-readonly-text: #6B6560;
+  --pill-freebeta-bg: #F0FDF4; --pill-freebeta-dot: #16A34A; --pill-freebeta-text: #15803D;
+  --pill-ready-bg: #F0FDF4; --pill-ready-dot: #16A34A; --pill-ready-text: #15803D;
+  --pill-pending-bg: #FFFBEB; --pill-pending-dot: #D97706; --pill-pending-text: #92400E;
+  --pill-done-bg: #F0FDF4; --pill-done-dot: #16A34A; --pill-done-text: #15803D;
+
+  --shadow-sm: 0 1px 2px rgba(15,14,13,0.04);
+  --shadow-md: 0 4px 16px rgba(15,14,13,0.06);
+  --shadow-lg: 0 16px 48px rgba(15,14,13,0.10);
+
+  color-scheme: light;
+}
+
+/* ============================================================
+   Base reset
+   ============================================================ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+  background: var(--surface-0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: var(--tracking-body);
+  font-feature-settings: "ss01", "cv11", "tnum";
+}
+
+/* Tabular figures everywhere we show money */
+.num, .money, [data-num] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+button { font-family: inherit; }
+
+a { color: var(--accent-500); text-decoration: none; }
+a:hover { color: var(--accent-400); }
+
+::selection { background: var(--accent-tint); color: var(--text-primary); }
+
+/* Scrollbars — minimal */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 5px; border: 2px solid var(--surface-0); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }

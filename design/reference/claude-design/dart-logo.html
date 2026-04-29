@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dart Finance — Logo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Quicksand:wght@500;600;700&family=Nunito:wght@600;700;800&family=Mulish:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Fraunces:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        background: #ECE7E0;
+        color: #0F0E0D;
+        padding: 56px 32px 96px;
+      }
+      .stack { max-width: 1100px; margin: 0 auto; display: grid; gap: 28px; }
+      h1 {
+        font-size: 13px; font-weight: 600; letter-spacing: 0.18em;
+        text-transform: uppercase; color: #6B6560; margin: 0 0 4px 4px;
+      }
+      .panel {
+        border-radius: 18px; border: 1px solid rgba(15,14,13,0.08);
+        padding: 80px 40px; display: grid; place-items: center;
+      }
+      .panel-light { background: #FFFFFF; }
+      .panel-dark  { background: #0F0E0D; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+      .small { padding: 36px 28px; }
+      .label {
+        font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+        color: #A09890; margin-top: 12px; text-align: center;
+      }
+      pre.code {
+        background: #FFFFFF; border: 1px solid #E2DDD8; border-radius: 12px;
+        padding: 16px 18px; font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 12px; line-height: 1.6; color: #0F0E0D; overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .note {
+        font-size: 13px; color: #6B6560; line-height: 1.6;
+        background: #FFFFFF; border: 1px solid #E2DDD8; border-radius: 12px;
+        padding: 16px 18px;
+      }
+      /* hide reference image when not toggled */
+      .ref-img { max-width: 100%; border-radius: 12px; border: 1px solid #E2DDD8; display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+    <script type="text/babel" src="tweaks-panel.jsx"></script>
+
+    <script type="text/babel">
+      const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+        "voice": "calligraphic",
+        "density": "compact",
+        "mood": "ink"
+      }/*EDITMODE-END*/;
+
+      // Expressive presets: each control reshapes multiple coordinated values.
+      const VOICES = {
+        calligraphic: { label: "Calligraphic Compass", fontFamily: "Quicksand",         fontWeight: 700, glyphStyle: "calligraphic", apex: "loop", iconRadius: 14, boxStroke: 4,   glyphStroke: 3 },
+        geometric:    { label: "Geometric Brand",      fontFamily: "Outfit",            fontWeight: 700, glyphStyle: "geometric",    apex: "dot",  iconRadius: 12, boxStroke: 3,   glyphStroke: 2.5 },
+        editorial:    { label: "Editorial Serif",      fontFamily: "Fraunces",          fontWeight: 700, glyphStyle: "flared",       apex: "ring", iconRadius: 18, boxStroke: 2.5, glyphStroke: 2.25 },
+        industrial:   { label: "Industrial Stencil",   fontFamily: "Barlow Condensed",  fontWeight: 800, glyphStyle: "geometric",    apex: "none", iconRadius: 4,  boxStroke: 5,   glyphStroke: 4 },
+      };
+      const DENSITIES = {
+        airy:     { label: "Airy",     fontSize: 44, letterSpacing: 0.12, iconSize: 64, iconGap: 26 },
+        balanced: { label: "Balanced", fontSize: 48, letterSpacing: 0.04, iconSize: 68, iconGap: 18 },
+        compact:  { label: "Compact",  fontSize: 52, letterSpacing: -0.02, iconSize: 72, iconGap: 10 },
+      };
+      const MOODS = {
+        navy:      { label: "Navy",      ink: "#283C63", tagline: "#928A97", darkInk: "#FFFFFF", darkTagline: "#79707E" },
+        ink:       { label: "Ink",       ink: "#0F0E0D", tagline: "#A09890", darkInk: "#F6F5F3", darkTagline: "#79707E" },
+        forest:    { label: "Forest",    ink: "#1F3A2E", tagline: "#8B9A8E", darkInk: "#E8F0EA", darkTagline: "#7A8A7F" },
+        aubergine: { label: "Aubergine", ink: "#3A2A4A", tagline: "#9C8FA8", darkInk: "#F2E8F5", darkTagline: "#8B7E96" },
+      };
+
+      // Resolve presets into the flat shape the renderer expects.
+      const resolveTweaks = (t) => ({
+        ...VOICES[t.voice],
+        ...DENSITIES[t.density],
+        ...MOODS[t.mood],
+        showTagline: true,
+        taglineText: "SPEND SAFELY. GROW QUIETLY.",
+        showReference: false,
+      });
+
+      // ─── A-glyph variants ──────────────────────────────────────────────────
+      // Returns a <g> placed at translate(0,0) inside a 68x68 icon box.
+      const Glyph = ({ style, apex, glyphStroke, iconSize }) => {
+        const s = glyphStroke;
+        const cap = "round", join = "round";
+        const props = { fill: "none", stroke: "currentColor", strokeWidth: s, strokeLinecap: cap, strokeLinejoin: join };
+
+        // Geometry within a 68×68 box
+        const apexX = 34, apexY = 22;
+        const legBottomY = 50;
+        const leftX = 21, rightX = 47;
+        const crossbarY = apexY + 0.45 * (legBottomY - apexY); // 34.6
+        // x of legs at crossbar:
+        const lxAtCross = 34 - ((crossbarY - apexY) / (legBottomY - apexY)) * (34 - leftX);
+        const rxAtCross = 34 + ((crossbarY - apexY) / (legBottomY - apexY)) * (rightX - 34);
+
+        const renderApex = () => {
+          if (apex === "none") return null;
+          if (apex === "dot") return <circle cx={apexX} cy={apexY} r={4} {...props} fill="currentColor" stroke="none"/>;
+          if (apex === "ring") return <circle cx={apexX} cy={apexY} r={3.5} {...props}/>;
+          // 'loop' — small open arc above the apex, suggesting a calligraphic terminal
+          return <path d={`M ${apexX - 4} ${apexY - 1} Q ${apexX} ${apexY - 7} ${apexX + 4} ${apexY - 1}`} {...props}/>;
+        };
+
+        if (style === "geometric") {
+          // Sharp chevron + straight crossbar (extends 6px past each leg)
+          return (
+            <g>
+              <path d={`M ${leftX} ${legBottomY} L ${apexX} ${apexY} L ${rightX} ${legBottomY}`} {...props}/>
+              <line x1={lxAtCross - 6} y1={crossbarY} x2={rxAtCross + 6} y2={crossbarY} {...props}/>
+              {renderApex()}
+            </g>
+          );
+        }
+
+        if (style === "flared") {
+          // Legs curve outward at the base — Trajan-ish flare
+          return (
+            <g>
+              <path d={`M ${apexX} ${apexY} Q ${apexX - 4} ${(apexY + legBottomY) / 2} ${leftX - 2} ${legBottomY}`} {...props}/>
+              <path d={`M ${apexX} ${apexY} Q ${apexX + 4} ${(apexY + legBottomY) / 2} ${rightX + 2} ${legBottomY}`} {...props}/>
+              <line x1={lxAtCross - 6} y1={crossbarY} x2={rxAtCross + 6} y2={crossbarY} {...props}/>
+              {renderApex()}
+            </g>
+          );
+        }
+
+        // 'calligraphic' — humanist A: legs flare slightly, crossbar dips into a soft bowl
+        return (
+          <g>
+            <path d={`M ${apexX} ${apexY} Q ${apexX - 2} ${(apexY + legBottomY) / 2} ${leftX} ${legBottomY}`} {...props}/>
+            <path d={`M ${apexX} ${apexY} Q ${apexX + 2} ${(apexY + legBottomY) / 2} ${rightX} ${legBottomY}`} {...props}/>
+            {/* curved crossbar (bowl) */}
+            <path d={`M ${lxAtCross - 5} ${crossbarY - 0.5} Q ${apexX} ${crossbarY + 4} ${rxAtCross + 5} ${crossbarY - 0.5}`} {...props}/>
+            {renderApex()}
+          </g>
+        );
+      };
+
+      const Lockup = ({ t, theme = "light" }) => {
+        const ink = theme === "dark" ? t.darkInk : t.ink;
+        const tag = theme === "dark" ? t.darkTagline : t.tagline;
+
+        // Compute lockup width from font + spacing — roughly
+        const wordmarkH = t.fontSize;
+        const iconBox = t.iconSize;
+        const gap = t.iconGap;
+        // We'll use a measurement <text> to size accurately
+        const [leftW, setLeftW] = React.useState(180);
+        const [rightW, setRightW] = React.useState(260);
+        const leftRef = React.useRef(null);
+        const rightRef = React.useRef(null);
+
+        React.useLayoutEffect(() => {
+          if (leftRef.current) setLeftW(Math.ceil(leftRef.current.getComputedTextLength()));
+          if (rightRef.current) setRightW(Math.ceil(rightRef.current.getComputedTextLength()));
+        }, [t.fontFamily, t.fontWeight, t.fontSize, t.letterSpacing]);
+
+        const totalW = leftW + gap + iconBox + gap + rightW;
+        const totalH = Math.max(iconBox, wordmarkH) + (t.showTagline ? 38 : 0) + 16;
+        const baseline = (Math.max(iconBox, wordmarkH) + wordmarkH) / 2 - 6 + 8;
+        const iconY = (Math.max(iconBox, wordmarkH) - iconBox) / 2 + 8;
+
+        const fontStyle = {
+          fontFamily: `"${t.fontFamily}", sans-serif`,
+          fontWeight: t.fontWeight,
+          fontSize: t.fontSize,
+          letterSpacing: `${t.letterSpacing}em`,
+        };
+
+        return (
+          <svg
+            className="dart-logo"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox={`0 0 ${totalW + 16} ${totalH + 16}`}
+            width={totalW + 16}
+            height={totalH + 16}
+            role="img"
+            aria-label="Dart Finance"
+            style={{ color: ink, display: "block" }}
+          >
+            {/* hidden measure-only text rendered at 0,-100 */}
+            <g style={{ visibility: "hidden" }}>
+              <text ref={leftRef} x={0} y={-100} style={fontStyle}>DART</text>
+              <text ref={rightRef} x={0} y={-100} style={fontStyle}>FINANCE</text>
+            </g>
+
+            <g transform="translate(8 8)">
+              <text x={0} y={baseline} style={fontStyle} fill="currentColor">DART</text>
+
+              <g transform={`translate(${leftW + gap} ${iconY})`}>
+                <rect
+                  x={t.boxStroke / 2}
+                  y={t.boxStroke / 2}
+                  width={iconBox - t.boxStroke}
+                  height={iconBox - t.boxStroke}
+                  rx={t.iconRadius - t.boxStroke / 2}
+                  ry={t.iconRadius - t.boxStroke / 2}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={t.boxStroke}
+                />
+                {/* Glyph drawn assuming a 68-unit box; scale to actual */}
+                <g transform={`scale(${iconBox / 68})`}>
+                  <Glyph style={t.glyphStyle} apex={t.apex} glyphStroke={t.glyphStroke} iconSize={iconBox}/>
+                </g>
+              </g>
+
+              <text x={leftW + gap + iconBox + gap} y={baseline} style={fontStyle} fill="currentColor">FINANCE</text>
+
+              {t.showTagline && (
+                <text
+                  x={totalW / 2}
+                  y={Math.max(iconBox, wordmarkH) + 28}
+                  textAnchor="middle"
+                  fontFamily='"Plus Jakarta Sans", sans-serif'
+                  fontWeight={400}
+                  fontSize={11}
+                  letterSpacing="0.2em"
+                  fill={tag}
+                >{t.taglineText}</text>
+              )}
+            </g>
+          </svg>
+        );
+      };
+
+      const IconOnly = ({ t, color, bg }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 68" width="68" height="68" role="img" aria-label="Dart Finance icon" style={{ color }}>
+          <rect x={t.boxStroke / 2} y={t.boxStroke / 2} width={68 - t.boxStroke} height={68 - t.boxStroke} rx={t.iconRadius - t.boxStroke / 2} ry={t.iconRadius - t.boxStroke / 2} fill="none" stroke="currentColor" strokeWidth={t.boxStroke}/>
+          <Glyph style={t.glyphStyle} apex={t.apex} glyphStroke={t.glyphStroke} iconSize={68}/>
+        </svg>
+      );
+
+      function App() {
+        const [raw, setTweak] = useTweaks(TWEAK_DEFAULTS);
+        const t = resolveTweaks(raw);
+
+        const voiceOpts    = Object.entries(VOICES).map(([k, v]) => ({ value: k, label: v.label }));
+        const densityOpts  = Object.entries(DENSITIES).map(([k, v]) => ({ value: k, label: v.label }));
+        const moodOpts     = Object.entries(MOODS).map(([k, v]) => ({ value: k, label: v.label }));
+
+        return (
+          <div className="stack">
+            <div>
+              <h1>Full lockup · Light</h1>
+              <div className="panel panel-light"><Lockup t={t} theme="light"/></div>
+            </div>
+
+            <div>
+              <h1>Full lockup · Dark</h1>
+              <div className="panel panel-dark"><Lockup t={t} theme="dark"/></div>
+            </div>
+
+            <div className="row">
+              <div>
+                <h1>Icon · Ink on light</h1>
+                <div className="panel panel-light small"><IconOnly t={t} color={t.ink}/></div>
+                <div className="label">68 × 68 · favicon, app icon</div>
+              </div>
+              <div>
+                <h1>Icon · Light on ink</h1>
+                <div className="panel small" style={{ background: t.ink }}><IconOnly t={t} color={t.darkInk}/></div>
+                <div className="label">68 × 68 · inverse</div>
+              </div>
+            </div>
+
+            <div>
+              <h1>Implementation</h1>
+              <div className="note">
+                Use a single SVG and let CSS resolve the colors via <code>currentColor</code>. Wrap in any element with <code>[data-theme="dark"]</code> to flip; below 160px wide, hide the tagline group.
+              </div>
+            </div>
+
+            <TweaksPanel title="Tweaks">
+              <TweakSelect label="Voice"   value={raw.voice}   options={voiceOpts}   onChange={(v) => setTweak('voice', v)}/>
+              <TweakRadio  label="Density" value={raw.density} options={densityOpts} onChange={(v) => setTweak('density', v)}/>
+              <TweakRadio  label="Mood"    value={raw.mood}    options={moodOpts}    onChange={(v) => setTweak('mood', v)}/>
+            </TweaksPanel>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+    </script>
+  </body>
+</html>
