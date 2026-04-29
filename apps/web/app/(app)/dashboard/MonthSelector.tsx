@@ -12,15 +12,16 @@ type MonthSelectorProps = {
   options: MonthOption[];
   selectedYear: number;
   selectedMonth: number;
+  basePath?: string;
 };
 
-export default function MonthSelector({ options, selectedYear, selectedMonth }: MonthSelectorProps) {
+export default function MonthSelector({ options, selectedYear, selectedMonth, basePath = '/dashboard' }: MonthSelectorProps) {
   const router = useRouter();
 
   function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const [year, month] = e.target.value.split('-').map(Number);
     if (year && month) {
-      router.push(`/dashboard?year=${year}&month=${month}`);
+      router.push(`${basePath}?year=${year}&month=${month}`);
     }
   }
 

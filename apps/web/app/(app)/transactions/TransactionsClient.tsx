@@ -473,26 +473,27 @@ export default function TransactionsClient({
           justifyContent: 'space-between',
           gap: 16,
           background: 'var(--surface-0)',
+          flexWrap: 'wrap',
         }}
       >
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
             Transactions
           </h1>
           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
             Latest imported rows · ING + Trading 212
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ ...badgeStyle('neutral'), minHeight: 28, fontSize: 11 }}>
+            {rows.length} rows
+          </span>
           <Link href="/transactions/matches" style={btnStyle('default', 34)}>
             Review matches
           </Link>
           <Link href="/transactions/new" style={btnStyle('primary', 34)}>
             + Add transaction
           </Link>
-          <div style={{ ...badgeStyle(unreviewedRows.length > 0 ? 'warning' : 'positive'), minHeight: 28 }}>
-            {rows.length} rows
-          </div>
         </div>
       </div>
 
@@ -712,247 +713,253 @@ export default function TransactionsClient({
             border: '1px solid var(--border-subtle)',
             borderRadius: 12,
             overflow: 'hidden',
+            maxWidth: '100%',
           }}
         >
-          {/* Header row */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: GRID,
-              gap: 12,
-              padding: '10px 20px',
-              borderBottom: '1px solid var(--border-subtle)',
-              alignItems: 'center',
-            }}
-          >
-            {/* Select-all checkbox */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <input
-                type="checkbox"
-                checked={allVisibleSelected}
-                onChange={toggleSelectAll}
-                style={{ cursor: 'pointer', accentColor: 'var(--accent-500)' }}
-                title="Select all visible"
-              />
-            </div>
-            {[
-              'Date',
-              'Account',
-              'Description',
-              'Amount',
-              'Source',
-              'Match',
-              'Intent',
-              'Category',
-              'Status',
-              'Actions',
-            ].map(
-              (heading) => (
-                <div
-                  key={heading}
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-tertiary)',
-                    textAlign: heading === 'Amount' ? 'right' : 'left',
-                  }}
-                >
-                  {heading}
+          {/* Horizontally scrollable table area */}
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 1300 }}>
+              {/* Header row */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: GRID,
+                  gap: 12,
+                  padding: '10px 20px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  alignItems: 'center',
+                }}
+              >
+                {/* Select-all checkbox */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleSelectAll}
+                    style={{ cursor: 'pointer', accentColor: 'var(--accent-500)' }}
+                    title="Select all visible"
+                  />
                 </div>
-              ),
-            )}
-          </div>
-
-          {filteredRows.length === 0 ? (
-            <div style={{ padding: '28px 20px', color: 'var(--text-tertiary)', fontSize: 13 }}>
-              {rows.length === 0
-                ? 'No imported transactions found for this user yet.'
-                : 'No transactions match the current filter.'}
-            </div>
-          ) : (
-            filteredRows.map((row) => {
-              const needsReview =
-                row.reviewStatus === 'pending' || row.reviewStatus === 'needs_attention';
-              const isSelected = selected.has(row.id);
-
-              return (
-                <div
-                  key={row.id}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: GRID,
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '12px 20px',
-                    borderTop: '1px solid var(--border-subtle)',
-                    background: isSelected
-                      ? 'var(--accent-tint)'
-                      : needsReview
-                        ? 'var(--warning-tint)'
-                        : 'transparent',
-                    transition: 'background 0.1s',
-                  }}
-                >
-                  {/* Checkbox */}
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleRow(row.id)}
-                      style={{ cursor: 'pointer', accentColor: 'var(--accent-500)' }}
-                    />
-                  </div>
-
-                  {/* Date */}
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--text-tertiary)',
-                      fontVariantNumeric: 'tabular-nums',
-                    }}
-                  >
-                    {formatDate(row.occurredAt)}
-                  </div>
-
-                  {/* Account */}
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: 'var(--text-secondary)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {row.accountName}
-                  </div>
-
-                  {/* Description — clickable to filter; merchant shown below when present */}
-                  <div style={{ minWidth: 0 }}>
-                    <button
-                      type="button"
-                      title={`Filter by: ${row.rawDescription}`}
-                      onClick={() => {
-                        setFilterDesc(row.rawDescription);
-                        setSelected(new Set());
-                      }}
+                {[
+                  'Date',
+                  'Account',
+                  'Description',
+                  'Amount',
+                  'Source',
+                  'Match',
+                  'Intent',
+                  'Category',
+                  'Status',
+                  'Actions',
+                ].map(
+                  (heading) => (
+                    <div
+                      key={heading}
                       style={{
-                        display: 'block',
-                        width: '100%',
-                        fontSize: 13,
-                        color: 'var(--text-primary)',
-                        fontWeight: 500,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontFamily: 'var(--font-sans)',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-tertiary)',
+                        textAlign: heading === 'Amount' ? 'right' : 'left',
                       }}
                     >
-                      {row.rawDescription}
-                    </button>
-                    {row.merchantName && (
+                      {heading}
+                    </div>
+                  ),
+                )}
+              </div>
+
+              {filteredRows.length === 0 ? (
+                <div style={{ padding: '28px 20px', color: 'var(--text-tertiary)', fontSize: 13 }}>
+                  {rows.length === 0
+                    ? 'No imported transactions found for this user yet.'
+                    : 'No transactions match the current filter.'}
+                </div>
+              ) : (
+                filteredRows.map((row) => {
+                  const needsReview =
+                    row.reviewStatus === 'pending' || row.reviewStatus === 'needs_attention';
+                  const isSelected = selected.has(row.id);
+
+                  return (
+                    <div
+                      key={row.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: GRID,
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '12px 20px',
+                        borderTop: '1px solid var(--border-subtle)',
+                        background: isSelected
+                          ? 'var(--accent-tint)'
+                          : needsReview
+                            ? 'var(--warning-tint)'
+                            : 'transparent',
+                        transition: 'background 0.1s',
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleRow(row.id)}
+                          style={{ cursor: 'pointer', accentColor: 'var(--accent-500)' }}
+                        />
+                      </div>
+
+                      {/* Date */}
                       <div
                         style={{
-                          fontSize: 11,
+                          fontSize: 12,
                           color: 'var(--text-tertiary)',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {formatDate(row.occurredAt)}
+                      </div>
+
+                      {/* Account */}
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: 'var(--text-secondary)',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          marginTop: 2,
                         }}
                       >
-                        merchant: {row.merchantName}
+                        {row.accountName}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Amount */}
-                  <div style={{ textAlign: 'right' }}>
-                    <Amount amount={row.amount} currency={row.currency} />
-                  </div>
+                      {/* Description — clickable to filter; merchant shown below when present */}
+                      <div style={{ minWidth: 0 }}>
+                        <button
+                          type="button"
+                          title={`Filter by: ${row.rawDescription}`}
+                          onClick={() => {
+                            setFilterDesc(row.rawDescription);
+                            setSelected(new Set());
+                          }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            fontSize: 13,
+                            color: 'var(--text-primary)',
+                            fontWeight: 500,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontFamily: 'var(--font-sans)',
+                          }}
+                        >
+                          {row.rawDescription}
+                        </button>
+                        {row.merchantName && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--text-tertiary)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              marginTop: 2,
+                            }}
+                          >
+                            merchant: {row.merchantName}
+                          </div>
+                        )}
+                      </div>
 
-                  {/* Intent badge */}
-                  <div>
-                    <span style={badgeStyle(sourceTone(row.source))}>
-                      {sourceLabel(row.source)}
-                    </span>
-                  </div>
+                      {/* Amount */}
+                      <div style={{ textAlign: 'right' }}>
+                        <Amount amount={row.amount} currency={row.currency} />
+                      </div>
 
-                  {/* Match badge */}
-                  <div>
-                    <span style={badgeStyle(matchTone(row))}>
-                      {matchLabel(row)}
-                    </span>
-                  </div>
+                      {/* Source badge */}
+                      <div>
+                        <span style={badgeStyle(sourceTone(row.source))}>
+                          {sourceLabel(row.source)}
+                        </span>
+                      </div>
 
-                  {/* Intent badge */}
-                  <div>
-                    <span style={badgeStyle(intentTone(row.intent))}>
-                      {INTENT_LABELS[row.intent]}
-                    </span>
-                  </div>
+                      {/* Match badge */}
+                      <div>
+                        <span style={badgeStyle(matchTone(row))}>
+                          {matchLabel(row)}
+                        </span>
+                      </div>
 
-                  {/* Category */}
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: row.categoryName ? 'var(--text-secondary)' : 'var(--text-disabled)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {row.categoryName ?? '—'}
-                  </div>
+                      {/* Intent badge */}
+                      <div>
+                        <span style={badgeStyle(intentTone(row.intent))}>
+                          {INTENT_LABELS[row.intent]}
+                        </span>
+                      </div>
 
-                  {/* Status */}
-                  <div>
-                    <span style={badgeStyle(statusTone(row.reviewStatus))}>
-                      {statusLabel(row.reviewStatus)}
-                    </span>
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {/* Per-row intent select */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <select
-                        defaultValue={row.intent}
-                        onChange={(e) => updateRowIntent(row.id, e.target.value)}
-                        style={{ ...selectStyle(), maxWidth: 118 }}
-                        title="Change intent and save automatically"
+                      {/* Category */}
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: row.categoryName ? 'var(--text-secondary)' : 'var(--text-disabled)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
                       >
-                        {INTENT_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                        {row.categoryName ?? '—'}
+                      </div>
+
+                      {/* Status */}
+                      <div>
+                        <span style={badgeStyle(statusTone(row.reviewStatus))}>
+                          {statusLabel(row.reviewStatus)}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {/* Per-row intent select */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <select
+                            defaultValue={row.intent}
+                            onChange={(e) => updateRowIntent(row.id, e.target.value)}
+                            style={{ ...selectStyle(), maxWidth: 118 }}
+                            title="Change intent and save automatically"
+                          >
+                            {INTENT_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {needsReview && (
+                          <button
+                            type="button"
+                            onClick={() => confirmRow(row.id)}
+                            style={btnStyle('default')}
+                          >
+                            Confirm
+                          </button>
+                        )}
+                      </div>
                     </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
 
-                    {needsReview && (
-                      <button
-                        type="button"
-                        onClick={() => confirmRow(row.id)}
-                        style={btnStyle('default')}
-                      >
-                        Confirm
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-
-          {/* Footer */}
+          {/* Footer — outside scroll area, always full width */}
           <div
             style={{
               display: 'flex',
@@ -962,6 +969,8 @@ export default function TransactionsClient({
               borderTop: '1px solid var(--border-subtle)',
               fontSize: 12,
               color: 'var(--text-tertiary)',
+              flexWrap: 'wrap',
+              gap: 8,
             }}
           >
             <span>
