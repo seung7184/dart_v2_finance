@@ -183,4 +183,63 @@ describe('buildSafeToSpendViewModel', () => {
       status: 'missing_import',
     });
   });
+
+  it('lets manual expenses reduce cash but excludes manual income from available cash', () => {
+    const viewModel = buildSafeToSpendViewModel({
+      accounts: [
+        {
+          accountType: 'checking',
+          id: 'checking-1',
+          isAccessibleSavings: false,
+          lastImportAt: new Date('2026-04-22T09:00:00.000Z'),
+          name: 'ING Checking',
+        },
+      ],
+      budgetPeriod: null,
+      importBatches: [{ importCompletedAt: new Date('2026-04-22T09:00:00.000Z') }],
+      recurringSeries: [],
+      sinkingFunds: [],
+      today: TODAY,
+      transactions: [
+        {
+          accountId: 'checking-1',
+          amount: 1_000_00,
+          intent: 'income_salary',
+          occurredAt: new Date('2026-04-20T00:00:00.000Z'),
+          reviewStatus: 'reviewed',
+          source: 'ing_csv',
+        },
+        {
+          accountId: 'checking-1',
+          amount: -25_00,
+          intent: 'living_expense',
+          occurredAt: new Date('2026-04-21T00:00:00.000Z'),
+          reviewStatus: 'reviewed',
+          source: 'manual',
+        },
+        {
+          accountId: 'checking-1',
+          amount: 200_00,
+          intent: 'income_other',
+          occurredAt: new Date('2026-04-21T00:00:00.000Z'),
+          reviewStatus: 'reviewed',
+          source: 'manual',
+        },
+      ],
+      user: {
+        id: USER_ID,
+        minimumCashBuffer: 0,
+        paydayDay: 30,
+        plannedInvestingProtected: true,
+      },
+    });
+
+    expect(viewModel.status).toBe('ready');
+    if (viewModel.status !== 'ready') {
+      throw new Error('Expected ready view model');
+    }
+
+    expect(viewModel.result.available_cash_cents).toBe(975_00);
+    expect(viewModel.availableAccounts[0]?.balanceCents).toBe(975_00);
+  });
 });

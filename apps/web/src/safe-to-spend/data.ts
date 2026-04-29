@@ -59,6 +59,7 @@ export async function loadSafeToSpendSourceData(
         intent: transactions.intent,
         occurredAt: transactions.occurredAt,
         reviewStatus: transactions.reviewStatus,
+        source: transactions.source,
       })
       .from(transactions)
       .where(eq(transactions.userId, userId)),

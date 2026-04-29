@@ -18,6 +18,7 @@ export type SafeToSpendTransactionRow = {
   intent: TransactionIntent;
   reviewStatus: ReviewStatus;
   occurredAt: Date;
+  source?: string;
 };
 
 export type SafeToSpendRecurringRow = {
@@ -163,6 +164,10 @@ function sumAccountBalance(
     }
 
     if (transaction.intent === 'reimbursement_out') {
+      return sum;
+    }
+
+    if (transaction.source === 'manual' && transaction.amount > 0) {
       return sum;
     }
 

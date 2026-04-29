@@ -4,6 +4,7 @@ export * from './accounts';
 export * from './categories';
 export * from './import_batches';
 export * from './transactions';
+export * from './transaction_matches';
 export * from './import_rows';
 export * from './transfer_links';
 export * from './reimbursement_links';
