@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SUPABASE_AUTH_CALLBACK_PATH } from '@/auth/constants';
+import { DartLogoLockup } from '@/brand/DartLogo';
 
 type SignInState =
   | { status: 'idle' }
@@ -66,39 +67,11 @@ export default function SignInPage() {
       <Link
         href="/"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
           marginBottom: 40,
           textDecoration: 'none',
         }}
       >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            background: 'var(--accent-500)',
-            color: 'var(--text-on-accent)',
-            display: 'grid',
-            placeItems: 'center',
-            fontWeight: 800,
-            fontSize: 15,
-            letterSpacing: '-0.02em',
-          }}
-        >
-          D
-        </div>
-        <span
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Dart Finance
-        </span>
+        <DartLogoLockup size="md" showTagline={true} />
       </Link>
 
       {/* Card */}

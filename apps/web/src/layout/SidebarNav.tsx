@@ -31,15 +31,15 @@ export function SidebarBrand() {
           width: 28,
           height: 28,
           borderRadius: 8,
-          background: 'var(--accent-tint)',
+          background: 'var(--surface-1)',
           border: '1px solid var(--border-default)',
-          color: 'var(--accent-400)',
+          color: 'var(--text-primary)',
           display: 'grid',
           placeItems: 'center',
           flexShrink: 0,
         }}
       >
-        <DartLogoIcon width={24} height={24} title="Dart Finance logo" />
+        <DartLogoIcon width={20} height={20} title="Dart Finance logo" />
       </div>
       <div
         style={{
