@@ -1,6 +1,6 @@
 import React from 'react';
 import { requireAuthenticatedAppUser } from '@/auth/session';
-import { SidebarNav } from '@/layout/SidebarNav';
+import { SidebarBrand, SidebarNav } from '@/layout/SidebarNav';
 import { ThemeToggle } from '@/theme/ThemeToggle';
 
 export default async function AppShellLayout({
@@ -36,43 +36,7 @@ export default async function AppShellLayout({
         }}
       >
         {/* Brand */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '4px 8px 12px',
-            borderBottom: '1px solid var(--border-subtle)',
-          }}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: 'var(--accent-500)',
-              color: 'var(--text-inverse)',
-              display: 'grid',
-              placeItems: 'center',
-              fontWeight: 800,
-              fontSize: 15,
-              letterSpacing: '-0.02em',
-              flexShrink: 0,
-            }}
-          >
-            D
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              color: 'var(--text-primary)',
-              fontWeight: 600,
-              letterSpacing: '-0.01em',
-            }}
-          >
-            Dart Finance
-          </div>
-        </div>
+        <SidebarBrand />
 
         {/* Nav */}
         <SidebarNav />

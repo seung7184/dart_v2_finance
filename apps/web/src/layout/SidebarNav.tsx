@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { DartLogoIcon } from '@/brand/DartLogo';
 
 type NavItem = { label: string; href: string };
 
@@ -13,6 +14,46 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Why This Number?', href: '/why' },
   { label: 'Settings', href: '/settings' },
 ];
+
+export function SidebarBrand() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '4px 8px 12px',
+        borderBottom: '1px solid var(--border-subtle)',
+      }}
+    >
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 8,
+          background: 'var(--accent-tint)',
+          border: '1px solid var(--border-default)',
+          color: 'var(--accent-400)',
+          display: 'grid',
+          placeItems: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <DartLogoIcon width={24} height={24} title="Dart Finance logo" />
+      </div>
+      <div
+        style={{
+          fontSize: 14,
+          color: 'var(--text-primary)',
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
+        }}
+      >
+        Dart Finance
+      </div>
+    </div>
+  );
+}
 
 export function SidebarNav() {
   const pathname = usePathname();
