@@ -115,6 +115,7 @@ export async function POST(request: Request) {
       return errorResponse('RAW_DESCRIPTION_REQUIRED', 400);
     }
 
+    const notes = getString(payload.notes);
     const requestedIntent = getString(payload.intent);
     if (requestedIntent.length > 0 && !isValidIntent(requestedIntent)) {
       return errorResponse('INVALID_INTENT', 400);
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
         externalId: null,
         importBatchId: null,
         intent: intent as NonNullable<TransactionInsert['intent']>,
+        notes: notes.length > 0 ? notes : null,
         occurredAt,
         rawDescription,
         reviewStatus: 'reviewed' as NonNullable<TransactionInsert['reviewStatus']>,

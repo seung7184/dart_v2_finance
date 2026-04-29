@@ -1,10 +1,17 @@
 'use client';
 
 import type { CSSProperties } from 'react';
+import Link from 'next/link';
 import { useState, useMemo, useCallback } from 'react';
 import { formatEUR } from '@dart/core';
+import {
+  filterTransactionsForView,
+  type TransactionVisibilityFilter,
+  type TransactionVisibilityMatchStatus,
+} from '@/transactions/visibility';
 
 type ReviewStatus = 'pending' | 'reviewed' | 'needs_attention' | 'auto_approved';
+type TransactionSource = 'manual' | 'ing_csv' | 't212_csv';
 
 type TransactionIntent =
   | 'living_expense'
@@ -35,8 +42,9 @@ export type TransactionRow = {
   occurredAt: Date;
   rawDescription: string;
   merchantName: string | null;
+  matchStatus: TransactionVisibilityMatchStatus;
   reviewStatus: ReviewStatus;
-  source: string;
+  source: TransactionSource;
 };
 
 export type CategoryOption = {
@@ -47,7 +55,7 @@ export type CategoryOption = {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 const GRID =
-  '32px 96px minmax(110px, 0.75fr) minmax(180px, 1.2fr) 106px 130px 120px 108px 160px';
+  '32px 88px minmax(100px, 0.7fr) minmax(170px, 1.2fr) 96px 92px 116px 112px 112px 108px 150px';
 
 // ── Intent metadata ───────────────────────────────────────────────────────────
 
@@ -177,6 +185,32 @@ function statusLabel(reviewStatus: ReviewStatus): string {
   return reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1);
 }
 
+function sourceLabel(source: TransactionSource): string {
+  if (source === 'ing_csv') return 'ING CSV';
+  if (source === 't212_csv') return 'T212 CSV';
+  return 'Manual';
+}
+
+function sourceTone(source: TransactionSource): 'neutral' | 'positive' | 'warning' | 'accent' {
+  if (source === 'manual') return 'accent';
+  if (source === 't212_csv') return 'positive';
+  return 'neutral';
+}
+
+function matchLabel(row: TransactionRow): string {
+  if (row.source !== 'manual') return 'Imported';
+  if (row.matchStatus === 'confirmed') return 'Matched';
+  if (row.matchStatus === 'suggested') return 'Match suggested';
+  return 'Manual';
+}
+
+function matchTone(row: TransactionRow): 'neutral' | 'positive' | 'warning' | 'accent' {
+  if (row.source !== 'manual') return 'neutral';
+  if (row.matchStatus === 'confirmed') return 'positive';
+  if (row.matchStatus === 'suggested') return 'warning';
+  return 'accent';
+}
+
 function btnStyle(variant: 'default' | 'primary' | 'danger' = 'default', height = 30): CSSProperties {
   const variants = {
     default: {
@@ -261,14 +295,20 @@ export default function TransactionsClient({
   const [bulkIntent, setBulkIntent] = useState<string>('');
   const [bulkCategoryId, setBulkCategoryId] = useState<string>('');
   const [applying, setApplying] = useState(false);
+  const [visibilityFilter, setVisibilityFilter] = useState<TransactionVisibilityFilter>('all_active');
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
+  const visibleRows = useMemo(
+    () => filterTransactionsForView(rows, visibilityFilter),
+    [rows, visibilityFilter],
+  );
+
   const filteredRows = useMemo(() => {
-    if (!filterDesc) return rows;
+    if (!filterDesc) return visibleRows;
     const normalized = normalizeDesc(filterDesc);
-    return rows.filter((row) => normalizeDesc(row.rawDescription) === normalized);
-  }, [rows, filterDesc]);
+    return visibleRows.filter((row) => normalizeDesc(row.rawDescription) === normalized);
+  }, [visibleRows, filterDesc]);
 
   // ── Selection ──────────────────────────────────────────────────────────────
 
@@ -402,6 +442,22 @@ export default function TransactionsClient({
   );
   const unreviewedTotal = unreviewedRows.reduce((sum, r) => sum + Math.abs(r.amount), 0);
   const hasBulkPayload = Boolean(bulkIntent || bulkCategoryId);
+  const filterOptions: Array<{ value: TransactionVisibilityFilter; label: string; count: number }> = [
+    { value: 'all_active', label: 'All active', count: filterTransactionsForView(rows, 'all_active').length },
+    { value: 'manual_only', label: 'Manual only', count: filterTransactionsForView(rows, 'manual_only').length },
+    {
+      value: 'unmatched_manual',
+      label: 'Unmatched manual',
+      count: filterTransactionsForView(rows, 'unmatched_manual').length,
+    },
+    {
+      value: 'match_suggested',
+      label: 'Match suggested',
+      count: filterTransactionsForView(rows, 'match_suggested').length,
+    },
+    { value: 'matched', label: 'Matched', count: filterTransactionsForView(rows, 'matched').length },
+    { value: 'needs_review', label: 'Needs review', count: filterTransactionsForView(rows, 'needs_review').length },
+  ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -427,8 +483,16 @@ export default function TransactionsClient({
             Latest imported rows · ING + Trading 212
           </div>
         </div>
-        <div style={{ ...badgeStyle(unreviewedRows.length > 0 ? 'warning' : 'positive'), minHeight: 28 }}>
-          {rows.length} rows
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link href="/transactions/matches" style={btnStyle('default', 34)}>
+            Review matches
+          </Link>
+          <Link href="/transactions/new" style={btnStyle('primary', 34)}>
+            + Add transaction
+          </Link>
+          <div style={{ ...badgeStyle(unreviewedRows.length > 0 ? 'warning' : 'positive'), minHeight: 28 }}>
+            {rows.length} rows
+          </div>
         </div>
       </div>
 
@@ -482,6 +546,35 @@ export default function TransactionsClient({
             </button>
           </div>
         )}
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            overflowX: 'auto',
+            paddingBottom: 2,
+          }}
+        >
+          {filterOptions.map((option) => {
+            const active = visibilityFilter === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  setVisibilityFilter(option.value);
+                  setSelected(new Set());
+                }}
+                style={{
+                  ...btnStyle(active ? 'primary' : 'default', 32),
+                  flexShrink: 0,
+                }}
+              >
+                {option.label} · {option.count}
+              </button>
+            );
+          })}
+        </div>
 
         {/* ── Filter chip ── */}
         {filterDesc && (
@@ -642,7 +735,18 @@ export default function TransactionsClient({
                 title="Select all visible"
               />
             </div>
-            {['Date', 'Account', 'Description', 'Amount', 'Intent', 'Category', 'Status', 'Actions'].map(
+            {[
+              'Date',
+              'Account',
+              'Description',
+              'Amount',
+              'Source',
+              'Match',
+              'Intent',
+              'Category',
+              'Status',
+              'Actions',
+            ].map(
               (heading) => (
                 <div
                   key={heading}
@@ -776,6 +880,20 @@ export default function TransactionsClient({
 
                   {/* Intent badge */}
                   <div>
+                    <span style={badgeStyle(sourceTone(row.source))}>
+                      {sourceLabel(row.source)}
+                    </span>
+                  </div>
+
+                  {/* Match badge */}
+                  <div>
+                    <span style={badgeStyle(matchTone(row))}>
+                      {matchLabel(row)}
+                    </span>
+                  </div>
+
+                  {/* Intent badge */}
+                  <div>
                     <span style={badgeStyle(intentTone(row.intent))}>
                       {INTENT_LABELS[row.intent]}
                     </span>
@@ -848,8 +966,8 @@ export default function TransactionsClient({
           >
             <span>
               {filterDesc
-                ? `Showing ${filteredRows.length} of ${rows.length} transactions`
-                : `Showing ${rows.length} transaction${rows.length !== 1 ? 's' : ''}`}
+                ? `Showing ${filteredRows.length} of ${visibleRows.length} visible transactions`
+                : `Showing ${visibleRows.length} visible transaction${visibleRows.length !== 1 ? 's' : ''}`}
             </span>
             <span style={{ color: 'var(--text-disabled)', fontSize: 11 }}>
               Click any description to filter · Import more via Import CSV in the sidebar

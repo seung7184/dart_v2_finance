@@ -759,7 +759,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             </>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
             <Link
               href="/import"
               style={{
@@ -778,6 +778,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                 <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>ING + Trading 212</div>
               </div>
               <span style={{ fontSize: 18, color: 'var(--text-tertiary)' }}>↑</span>
+            </Link>
+            <Link
+              href="/transactions/new"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 20px',
+                background: 'var(--surface-1)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 12,
+                textDecoration: 'none',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Add transaction</div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>Manual web entry</div>
+              </div>
+              <span style={{ fontSize: 18, color: 'var(--text-tertiary)' }}>+</span>
             </Link>
             <Link
               href="/transactions"

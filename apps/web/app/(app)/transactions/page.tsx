@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { accounts, categories, db, transactions } from '@dart/db';
 import { requireAuthenticatedAppUser } from '@/auth/session';
 import {
@@ -67,6 +67,21 @@ async function getTransactionsForUser(userId: string): Promise<TransactionRow[]>
       merchantName: transactions.merchantName,
       reviewStatus: transactions.reviewStatus,
       source: transactions.source,
+      matchStatus: sql<TransactionRow['matchStatus']>`
+        (
+          select tm.match_status
+          from transaction_matches tm
+          where tm.manual_transaction_id = ${transactions.id}
+            and tm.user_id = ${transactions.userId}
+          order by case tm.match_status
+            when 'suggested' then 1
+            when 'confirmed' then 2
+            when 'rejected' then 3
+            else 4
+          end
+          limit 1
+        )
+      `,
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
@@ -89,7 +104,8 @@ async function getTransactionsForUser(userId: string): Promise<TransactionRow[]>
     rawDescription: r.rawDescription,
     merchantName: r.merchantName ?? null,
     reviewStatus: r.reviewStatus as TransactionRow['reviewStatus'],
-    source: r.source,
+    source: r.source as TransactionRow['source'],
+    matchStatus: r.matchStatus,
   }));
 }
 
