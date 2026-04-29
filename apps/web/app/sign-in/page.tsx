@@ -79,7 +79,7 @@ export default function SignInPage() {
             height: 28,
             borderRadius: 8,
             background: 'var(--accent-500)',
-            color: '#fff',
+            color: 'var(--text-on-accent)',
             display: 'grid',
             placeItems: 'center',
             fontWeight: 800,
@@ -188,7 +188,7 @@ export default function SignInPage() {
               style={{
                 height: 44,
                 background: 'var(--accent-500)',
-                color: '#fff',
+                color: 'var(--text-on-accent)',
                 border: 'none',
                 borderRadius: 8,
                 fontFamily: 'var(--font-sans)',

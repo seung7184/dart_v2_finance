@@ -44,6 +44,7 @@
   --accent-600: #2563EB;
   --accent-tint: rgba(59,130,246,0.12);
   --accent-ring: rgba(59,130,246,0.32);
+  --text-on-accent: #FFFFFF;
 
   /* Semantic */
   --positive:       #6EE7B7;
@@ -153,6 +154,7 @@
   --accent-600: #1D4ED8;
   --accent-tint: #EBF1FE;
   --accent-ring: rgba(59,123,248,0.28);
+  --text-on-accent: #FFFFFF;
 
   --positive: #16A34A;
   --positive-tint: #F0FDF4;

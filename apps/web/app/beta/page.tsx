@@ -89,7 +89,7 @@ export default function BetaPage() {
         <div
           style={{
             width: 28, height: 28, borderRadius: 8,
-            background: 'var(--accent-500)', color: '#fff',
+            background: 'var(--accent-500)', color: 'var(--text-on-accent)',
             display: 'grid', placeItems: 'center',
             fontWeight: 800, fontSize: 15, letterSpacing: '-0.02em',
           }}
@@ -259,7 +259,7 @@ export default function BetaPage() {
                 style={{
                   height: 44,
                   background: isSubmitting ? 'var(--surface-3)' : 'var(--accent-500)',
-                  color: isSubmitting ? 'var(--text-disabled)' : '#fff',
+                  color: isSubmitting ? 'var(--text-disabled)' : 'var(--text-on-accent)',
                   border: 'none',
                   borderRadius: 8,
                   fontFamily: 'var(--font-sans)',
