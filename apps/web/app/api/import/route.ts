@@ -70,6 +70,11 @@ export async function POST(request: Request) {
           authenticatedUserId,
           bank,
           csvContent,
+          onMatchingError: (matchingError) => {
+            captureServerException(matchingError, {
+              context: 'api_import_reconciliation',
+            });
+          },
           originalFilename: file.name,
         },
         createImportRepository(),

@@ -9,7 +9,12 @@ import {
 } from '@/transactions/runtime';
 import { loadSafeToSpendSourceData } from '@/safe-to-spend/data';
 import { buildSafeToSpendViewModel, type SafeToSpendViewModel } from '@/safe-to-spend/view-model';
-import { loadAvailableMonths, loadMonthlyCategoryBreakdown, loadMonthlyStats } from '@/safe-to-spend/monthly';
+import {
+  loadAvailableMonths,
+  loadManualTrackingStats,
+  loadMonthlyCategoryBreakdown,
+  loadMonthlyStats,
+} from '@/safe-to-spend/monthly';
 import { loadMerchantInsights, type MerchantInsights } from '@/merchants/insights';
 import MonthSelector from './MonthSelector';
 
@@ -124,9 +129,11 @@ function DatabaseUnavailable({ message }: { message: string | null }) {
 function MonthlyStatsCard({
   stats,
   isCurrentMonth,
+  safeToSpendPerDayCents,
 }: {
   stats: Awaited<ReturnType<typeof loadMonthlyStats>>;
   isCurrentMonth: boolean;
+  safeToSpendPerDayCents: number | null;
 }) {
   const monthLabel = new Intl.DateTimeFormat('en-US', {
     month: 'long',
@@ -136,6 +143,7 @@ function MonthlyStatsCard({
 
   const spendParts = centsParts(stats.reviewedSpendingCents);
   const spendPerDayParts = centsParts(stats.actualSpendPerDayCents);
+  const safePerDayParts = safeToSpendPerDayCents === null ? null : centsParts(safeToSpendPerDayCents);
 
   return (
     <div
@@ -151,7 +159,7 @@ function MonthlyStatsCard({
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={eyebrowStyle()}>
-          {monthLabel} · Monthly overview
+          Month progress · {monthLabel}
         </div>
         {isCurrentMonth && (
           <span
@@ -171,7 +179,7 @@ function MonthlyStatsCard({
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
         <div style={statCardStyle()}>
           <div style={eyebrowStyle()}>Reviewed spending</div>
           <div
@@ -231,6 +239,31 @@ function MonthlyStatsCard({
               : `Over ${stats.daysInMonth} days`}
           </div>
         </div>
+
+        <div style={statCardStyle()}>
+          <div style={eyebrowStyle()}>Safe-to-spend/day</div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              color: safePerDayParts ? 'var(--accent-400)' : 'var(--text-disabled)',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {safePerDayParts ? (
+              <>
+                € {safePerDayParts.euros}
+                <span style={{ opacity: 0.55, fontWeight: 500, fontSize: 16 }}>,{safePerDayParts.cents}</span>
+              </>
+            ) : (
+              'Current only'
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+            Live safe-to-spend estimate
+          </div>
+        </div>
       </div>
 
       <div
@@ -244,8 +277,67 @@ function MonthlyStatsCard({
         }}
       >
         {isCurrentMonth
-          ? 'Actual spend/day = reviewed living spending so far ÷ elapsed days in current month. Safe remaining/day is shown separately above.'
-          : 'Actual avg spend/day = total reviewed living spending ÷ calendar days in that month. Based on reviewed transactions only.'}
+          ? `Elapsed ${stats.daysElapsed} of ${stats.daysInMonth} days. Actual spend/day uses reviewed spending ÷ elapsed days.`
+          : `Full historical month: ${stats.daysInMonth} days. Safe-to-spend/day is only shown for the current month.`}
+      </div>
+    </div>
+  );
+}
+
+function ManualTrackingCard({
+  stats,
+}: {
+  stats: Awaited<ReturnType<typeof loadManualTrackingStats>>;
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--surface-1)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 16,
+        padding: '18px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={eyebrowStyle()}>Manual tracking</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {stats.suggestedMatchCount > 0 && (
+            <Link href="/transactions/matches" style={{ fontSize: 12, color: 'var(--accent-400)', fontWeight: 600 }}>
+              Review matches →
+            </Link>
+          )}
+          <Link href="/transactions/new" style={{ fontSize: 12, color: 'var(--accent-400)', fontWeight: 600 }}>
+            Add manual →
+          </Link>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+        {[
+          { label: 'Manual this month', value: stats.manualTransactionCount, tone: 'var(--text-primary)' },
+          { label: 'Suggested matches', value: stats.suggestedMatchCount, tone: 'var(--warning)' },
+          { label: 'Matched manual', value: stats.confirmedMatchedManualCount, tone: 'var(--positive)' },
+          { label: 'Unmatched manual', value: stats.unmatchedManualCount, tone: 'var(--accent-400)' },
+        ].map((item) => (
+          <div key={item.label} style={statCardStyle()}>
+            <div style={eyebrowStyle()}>{item.label}</div>
+            <div
+              style={{
+                color: item.tone,
+                fontSize: 24,
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {item.value}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.5 }}>
+        Suggested manual rows stay active until you confirm a match. Confirmed manual duplicates are excluded from spending analytics.
       </div>
     </div>
   );
@@ -428,16 +520,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   let viewModel: SafeToSpendViewModel | null = null;
   let availableMonths: Array<{ year: number; month: number; label: string }> = [];
   let monthlyStats: Awaited<ReturnType<typeof loadMonthlyStats>> | null = null;
+  let manualTrackingStats: Awaited<ReturnType<typeof loadManualTrackingStats>> | null = null;
   let categoryBreakdown: Awaited<ReturnType<typeof loadMonthlyCategoryBreakdown>> = [];
   let merchantInsights: MerchantInsights | null = null;
 
   if (runtimeState.databaseConfigured) {
     try {
-      const [sourceData, loadedAvailableMonths, loadedMonthlyStats, loadedCategoryBreakdown, loadedMerchantInsights] =
+      const [
+        sourceData,
+        loadedAvailableMonths,
+        loadedMonthlyStats,
+        loadedManualTrackingStats,
+        loadedCategoryBreakdown,
+        loadedMerchantInsights,
+      ] =
         await withDatabaseRuntimeTimeout(Promise.all([
           loadSafeToSpendSourceData(userId),
           loadAvailableMonths(userId, today),
           loadMonthlyStats(userId, selectedYear, selectedMonth, today),
+          loadManualTrackingStats(userId, selectedYear, selectedMonth),
           loadMonthlyCategoryBreakdown(userId, selectedYear, selectedMonth),
           loadMerchantInsights(userId, selectedYear, selectedMonth),
         ]));
@@ -445,6 +546,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       viewModel = buildSafeToSpendViewModel(sourceData);
       availableMonths = loadedAvailableMonths;
       monthlyStats = loadedMonthlyStats;
+      manualTrackingStats = loadedManualTrackingStats;
       categoryBreakdown = loadedCategoryBreakdown;
       merchantInsights = loadedMerchantInsights;
     } catch (error) {
@@ -531,12 +633,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
           {/* Monthly stats slicer — only shown when current month is selected */}
           {monthlyStats && isCurrentMonth && (
-            <MonthlyStatsCard stats={monthlyStats} isCurrentMonth={true} />
+            <MonthlyStatsCard
+              stats={monthlyStats}
+              isCurrentMonth={true}
+              safeToSpendPerDayCents={viewModel.result.value_cents}
+            />
           )}
 
           {/* Monthly stats slicer — historical month */}
           {monthlyStats && !isCurrentMonth && (
-            <MonthlyStatsCard stats={monthlyStats} isCurrentMonth={false} />
+            <MonthlyStatsCard
+              stats={monthlyStats}
+              isCurrentMonth={false}
+              safeToSpendPerDayCents={null}
+            />
+          )}
+
+          {manualTrackingStats && (
+            <ManualTrackingCard stats={manualTrackingStats} />
           )}
 
           {/* Category spending breakdown */}

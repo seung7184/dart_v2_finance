@@ -24,6 +24,11 @@ type SkippedRow = {
   rowIndex: number;
   status: 'duplicate' | 'error';
 };
+type ReconciliationSummary = {
+  matchesHref?: string;
+  suggestedMatchCount: number;
+  unmatchedImportCount: number;
+};
 
 const REQUIRED_FIELDS: Record<SupportedBank, string[]> = {
   ING: ['Datum', 'Naam / Omschrijving', 'Bedrag (EUR)', 'Af Bij'],
@@ -48,6 +53,7 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
   const [skippedRows, setSkippedRows] = useState<SkippedRow[]>([]);
+  const [reconciliation, setReconciliation] = useState<ReconciliationSummary | null>(null);
   const [rowCount, setRowCount] = useState(0);
   const [fileName, setFileName] = useState('');
   const [importNotice, setImportNotice] = useState('');
@@ -108,6 +114,7 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
     try {
       const payload = await postImport('preview', file);
       setSelectedFile(file);
+      setReconciliation(null);
       setPreviewRows((payload.previewRows as PreviewRow[]) ?? []);
       setDuplicateCount(typeof payload.duplicateCount === 'number' ? payload.duplicateCount : 0);
       setErrorCount(typeof payload.errorCount === 'number' ? payload.errorCount : 0);
@@ -119,6 +126,7 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
       setDuplicateCount(0);
       setErrorCount(0);
       setSkippedRows([]);
+      setReconciliation(null);
       setRowCount(0);
       trackException(error, { bank, context: 'csv_import_preview' });
       setErrorMessage(error instanceof Error ? error.message : 'Preview failed.');
@@ -141,14 +149,35 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
         typeof payload.duplicateCount === 'number' ? payload.duplicateCount : 0;
       const returnedErrorCount = typeof payload.errorCount === 'number' ? payload.errorCount : 0;
       const alreadyImported = payload.alreadyImported === true;
+      const reconciliationPayload =
+        typeof payload.reconciliation === 'object' && payload.reconciliation !== null
+          ? (payload.reconciliation as Partial<ReconciliationSummary>)
+          : null;
+      const nextReconciliation: ReconciliationSummary = {
+        suggestedMatchCount:
+          typeof reconciliationPayload?.suggestedMatchCount === 'number'
+            ? reconciliationPayload.suggestedMatchCount
+            : 0,
+        unmatchedImportCount:
+          typeof reconciliationPayload?.unmatchedImportCount === 'number'
+            ? reconciliationPayload.unmatchedImportCount
+            : importedCount,
+      };
+      if (typeof reconciliationPayload?.matchesHref === 'string') {
+        nextReconciliation.matchesHref = reconciliationPayload.matchesHref;
+      }
       setDuplicateCount(returnedDuplicateCount);
       setErrorCount(returnedErrorCount);
+      setReconciliation(nextReconciliation);
       setSkippedRows((payload.skippedRows as SkippedRow[]) ?? []);
       trackEvent('csv_import_completed', {
         alreadyImported, bank,
         duplicateCount: returnedDuplicateCount,
         errorCount: returnedErrorCount,
-        importedCount, rowCount,
+        importedCount,
+        suggestedMatchCount: nextReconciliation.suggestedMatchCount,
+        unmatchedImportCount: nextReconciliation.unmatchedImportCount,
+        rowCount,
       });
       if (!alreadyImported && importedCount > 0) {
         trackFirstSeenEvent('observability:first_import', 'first_import', { bank, importedCount });
@@ -156,10 +185,11 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
       setImportNotice(
         alreadyImported
           ? `This file was already imported. No new transactions were added.`
-          : `Imported ${importedCount} transactions for review. ${returnedDuplicateCount} duplicates skipped. ${returnedErrorCount} rows failed validation.`,
+          : `Imported ${importedCount} transactions for review. ${returnedDuplicateCount} duplicates skipped. ${returnedErrorCount} rows failed validation. ${nextReconciliation.suggestedMatchCount} likely manual matches found.`,
       );
     } catch (error) {
       setImportNotice('');
+      setReconciliation(null);
       trackException(error, { bank, context: 'csv_import_execute' });
       setErrorMessage(error instanceof Error ? error.message : 'Import failed.');
     } finally {
@@ -204,6 +234,7 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
                   setBank(option);
                   setSelectedFile(null);
                   setPreviewRows([]);
+                  setReconciliation(null);
                   setErrorMessage('');
                   setImportNotice('');
                 }}
@@ -696,6 +727,22 @@ export default function ImportForm({ ingAccount, t212Account }: ImportFormProps)
                   </a>
                 </>
               )}
+              {reconciliation?.matchesHref && reconciliation.suggestedMatchCount > 0 && (
+                <>
+                  {' '}
+                  <a href={reconciliation.matchesHref} style={{ color: 'var(--accent-400)', fontWeight: 600 }}>
+                    Review matches →
+                  </a>
+                </>
+              )}
+            </p>
+          )}
+          {reconciliation && (
+            <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
+              Reconciliation: {reconciliation.suggestedMatchCount} likely manual match
+              {reconciliation.suggestedMatchCount !== 1 ? 'es' : ''} ·{' '}
+              {reconciliation.unmatchedImportCount} unmatched import
+              {reconciliation.unmatchedImportCount !== 1 ? 's' : ''}
             </p>
           )}
           {errorMessage && (

@@ -6,6 +6,7 @@ import {
   getImportPreview,
   type ImportBatchRecord,
   type ImportRepository,
+  type ManualImportMatchCandidate,
 } from './service';
 
 type FakeTransactionRecord = {
@@ -21,9 +22,12 @@ type FakeTransactionRecord = {
 class FakeImportRepository implements ImportRepository {
   public readonly batches: Array<Record<string, unknown>> = [];
   public readonly importRows: Array<Record<string, unknown>> = [];
+  public readonly suggestedMatches: Array<Record<string, unknown>> = [];
   public readonly transactions: FakeTransactionRecord[] = [];
   private readonly accounts = new Map<string, { id: string; userId: string }>();
   private readonly existingBatches = new Map<string, ImportBatchRecord>();
+  private manualMatchCandidates: ManualImportMatchCandidate[] = [];
+  public failMatchingLookups = false;
 
   addAccount(id: string, userId: string) {
     this.accounts.set(id, { id, userId });
@@ -51,6 +55,10 @@ class FakeImportRepository implements ImportRepository {
       externalId,
       id: `existing-external-${this.transactions.length + 1}`,
     });
+  }
+
+  addManualMatchCandidate(candidate: ManualImportMatchCandidate) {
+    this.manualMatchCandidates.push(candidate);
   }
 
   async completeImportBatch(input: {
@@ -120,12 +128,40 @@ class FakeImportRepository implements ImportRepository {
     return { id: transaction.id };
   }
 
+  async createSuggestedTransactionMatch(input: {
+    importedTransactionId: string;
+    manualTransactionId: string;
+    matchConfidence: number;
+    matchReason: string;
+    userId: string;
+  }) {
+    const duplicate = this.suggestedMatches.find(
+      (match) =>
+        match.manualTransactionId === input.manualTransactionId &&
+        match.importedTransactionId === input.importedTransactionId,
+    );
+    if (!duplicate) {
+      this.suggestedMatches.push({
+        matchStatus: 'suggested',
+        ...input,
+      });
+    }
+  }
+
   async findCategoryByName(_name: string): Promise<{ id: string } | null> {
     return null;
   }
 
   async findAccount(accountId: string) {
     return this.accounts.get(accountId) ?? null;
+  }
+
+  async findManualMatchCandidates(userId: string): Promise<ManualImportMatchCandidate[]> {
+    if (this.failMatchingLookups) {
+      throw new Error('MATCHING_LOOKUP_FAILED');
+    }
+
+    return this.manualMatchCandidates.filter((candidate) => candidate.userId === userId);
   }
 
   async findExistingBatchByFileHash(userId: string, fileHash: string) {
@@ -270,6 +306,85 @@ describe('executeImport', () => {
       reviewStatus: 'pending',
       source: 't212_csv',
     });
+  });
+
+  it('creates suggested manual match rows after importing matching CSV transactions', async () => {
+    const repository = new FakeImportRepository();
+    repository.addAccount('account-ing', 'user-1');
+    repository.addManualMatchCandidate({
+      accountId: 'account-ing',
+      accountType: 'checking',
+      amountCents: -350,
+      id: 'manual-1',
+      merchantName: null,
+      occurredAt: new Date('2026-04-02T00:00:00.000Z'),
+      rawDescription: 'Coffee Company',
+      source: 'manual',
+      userId: 'user-1',
+    });
+
+    const csvContent = [
+      'Datum;Naam / Omschrijving;Rekening;Tegenrekening;Code;Af Bij;Bedrag (EUR);Mutatiesoort;Mededelingen',
+      '02-04-2026;Coffee Company Amsterdam;;;;Af;3,50;;',
+      '03-04-2026;Unrelated Shop;;;;Af;7,00;;',
+    ].join('\n');
+
+    const result = await executeImport(
+      {
+        accountId: 'account-ing',
+        authenticatedUserId: 'user-1',
+        bank: 'ING',
+        csvContent,
+        originalFilename: 'ing.csv',
+      },
+      repository,
+    );
+
+    expect(repository.suggestedMatches).toEqual([
+      expect.objectContaining({
+        importedTransactionId: 'transaction-1',
+        manualTransactionId: 'manual-1',
+        matchConfidence: 95,
+        matchStatus: 'suggested',
+        userId: 'user-1',
+      }),
+    ]);
+    expect(result.reconciliation).toEqual({
+      matchesHref: '/transactions/matches',
+      suggestedMatchCount: 1,
+      unmatchedImportCount: 1,
+    });
+  });
+
+  it('does not fail imports when reconciliation lookup fails', async () => {
+    const repository = new FakeImportRepository();
+    const matchingErrors: unknown[] = [];
+    repository.addAccount('account-ing', 'user-1');
+    repository.failMatchingLookups = true;
+
+    const csvContent = [
+      'Datum;Naam / Omschrijving;Rekening;Tegenrekening;Code;Af Bij;Bedrag (EUR);Mutatiesoort;Mededelingen',
+      '02-04-2026;Coffee Company;;;;Af;3,50;;',
+    ].join('\n');
+
+    const result = await executeImport(
+      {
+        accountId: 'account-ing',
+        authenticatedUserId: 'user-1',
+        bank: 'ING',
+        csvContent,
+        originalFilename: 'ing.csv',
+        onMatchingError: (error) => matchingErrors.push(error),
+      },
+      repository,
+    );
+
+    expect(result.importedCount).toBe(1);
+    expect(result.reconciliation).toEqual({
+      suggestedMatchCount: 0,
+      unmatchedImportCount: 1,
+    });
+    expect(matchingErrors).toHaveLength(1);
   });
 
   it('shows preview review status and skipped-row reasons before import', () => {

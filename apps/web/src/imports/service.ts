@@ -6,6 +6,11 @@ import {
   type ParsedRow,
 } from '@dart/csv-parsers';
 import { suggestFromMerchantName } from '@dart/core';
+import {
+  suggestCsvManualMatches,
+  type ImportedMatchInput,
+  type ManualMatchCandidate,
+} from '../transactions/matching';
 
 export type SupportedBank = 'ING' | 'T212';
 
@@ -38,8 +43,15 @@ export type ImportExecutionResult = {
   duplicateCount: number;
   errorCount: number;
   importedCount: number;
+  reconciliation: ImportReconciliationSummary;
   rowCount: number;
   skippedRows: ImportSkippedRow[];
+};
+
+export type ImportReconciliationSummary = {
+  matchesHref?: '/transactions/matches';
+  suggestedMatchCount: number;
+  unmatchedImportCount: number;
 };
 
 export type ImportAccount = {
@@ -53,6 +65,8 @@ export type ImportBatchRecord = {
   importedCount: number | null;
   rowCount: number | null;
 };
+
+export type ManualImportMatchCandidate = ManualMatchCandidate;
 
 export type ImportRepository = {
   completeImportBatch(input: {
@@ -99,9 +113,17 @@ export type ImportRepository = {
     source: 'ing_csv' | 't212_csv';
     userId: string;
   }): Promise<{ id: string }>;
+  createSuggestedTransactionMatch(input: {
+    importedTransactionId: string;
+    manualTransactionId: string;
+    matchConfidence: number;
+    matchReason: string;
+    userId: string;
+  }): Promise<void>;
   findCategoryByName(name: string): Promise<{ id: string } | null>;
   findAccount(accountId: string): Promise<ImportAccount | null>;
   findExistingBatchByFileHash(userId: string, fileHash: string): Promise<ImportBatchRecord | null>;
+  findManualMatchCandidates(userId: string): Promise<ManualImportMatchCandidate[]>;
   findTransactionByExternalId(accountId: string, externalId: string): Promise<{ id: string } | null>;
   findTransactionByFallback(input: {
     accountId: string;
@@ -111,6 +133,69 @@ export type ImportRepository = {
   }): Promise<{ id: string } | null>;
   touchAccountLastImport(accountId: string, importedAt: Date): Promise<void>;
 };
+
+function emptyReconciliationSummary(unmatchedImportCount: number): ImportReconciliationSummary {
+  return {
+    suggestedMatchCount: 0,
+    unmatchedImportCount,
+  };
+}
+
+async function reconcileManualMatches(input: {
+  importedTransactions: ImportedMatchInput[];
+  onMatchingError?: (error: unknown) => void;
+  repository: ImportRepository;
+  userId: string;
+}): Promise<ImportReconciliationSummary> {
+  if (input.importedTransactions.length === 0) {
+    return emptyReconciliationSummary(0);
+  }
+
+  try {
+    const manualCandidates = await input.repository.findManualMatchCandidates(input.userId);
+    const suggestions = suggestCsvManualMatches({
+      importedTransactions: input.importedTransactions,
+      manualCandidates,
+    }).filter((suggestion) => Boolean(suggestion.importedTransactionId));
+
+    for (const suggestion of suggestions) {
+      if (!suggestion.importedTransactionId) {
+        continue;
+      }
+
+      await input.repository.createSuggestedTransactionMatch({
+        importedTransactionId: suggestion.importedTransactionId,
+        manualTransactionId: suggestion.manualTransactionId,
+        matchConfidence: suggestion.confidence,
+        matchReason: suggestion.reason,
+        userId: input.userId,
+      });
+    }
+
+    const matchedImportIds = new Set(
+      suggestions.flatMap((suggestion) =>
+        suggestion.importedTransactionId ? [suggestion.importedTransactionId] : [],
+      ),
+    );
+    const summary: ImportReconciliationSummary = {
+      suggestedMatchCount: suggestions.length,
+      unmatchedImportCount: input.importedTransactions.filter(
+        (transaction) =>
+          transaction.importedTransactionId &&
+          !matchedImportIds.has(transaction.importedTransactionId),
+      ).length,
+    };
+
+    if (summary.suggestedMatchCount > 0) {
+      summary.matchesHref = '/transactions/matches';
+    }
+
+    return summary;
+  } catch (error) {
+    input.onMatchingError?.(error);
+    return emptyReconciliationSummary(input.importedTransactions.length);
+  }
+}
 
 const VALID_INTENTS = new Set([
   'living_expense',
@@ -253,6 +338,7 @@ export async function executeImport(
     bank: SupportedBank;
     csvContent: string;
     originalFilename: string;
+    onMatchingError?: (error: unknown) => void;
   },
   repository: ImportRepository,
 ): Promise<ImportExecutionResult> {
@@ -276,6 +362,7 @@ export async function executeImport(
       duplicateCount: existingBatch.duplicateCount ?? 0,
       errorCount: 0,
       importedCount: existingBatch.importedCount ?? 0,
+      reconciliation: emptyReconciliationSummary(0),
       rowCount: existingBatch.rowCount ?? rowCount,
       skippedRows: [],
     };
@@ -295,6 +382,7 @@ export async function executeImport(
 
   let importedCount = 0;
   let duplicateCount = parseResult.duplicate_count;
+  const importedTransactionsForMatching: ImportedMatchInput[] = [];
   const skippedRows = skippedRowsFromParseResult(parseResult);
 
   for (const duplicate of parseResult.duplicates) {
@@ -393,6 +481,15 @@ export async function executeImport(
     });
 
     importedCount += 1;
+    importedTransactionsForMatching.push({
+      accountId: input.accountId,
+      amountCents: row.amount_cents,
+      importedTransactionId: createdTransaction.id,
+      merchantName: finalMerchantName,
+      occurredAt: row.occurred_at,
+      rawDescription: row.raw_description,
+      userId: account.userId,
+    });
     await repository.createImportRow({
       importBatchId: createdBatch.id,
       parseError: null,
@@ -415,6 +512,20 @@ export async function executeImport(
   });
 
   await repository.touchAccountLastImport(input.accountId, completedAt);
+  const reconciliationInput: {
+    importedTransactions: ImportedMatchInput[];
+    onMatchingError?: (error: unknown) => void;
+    repository: ImportRepository;
+    userId: string;
+  } = {
+    importedTransactions: importedTransactionsForMatching,
+    repository,
+    userId: account.userId,
+  };
+  if (input.onMatchingError) {
+    reconciliationInput.onMatchingError = input.onMatchingError;
+  }
+  const reconciliation = await reconcileManualMatches(reconciliationInput);
 
   return {
     alreadyImported: false,
@@ -422,6 +533,7 @@ export async function executeImport(
     duplicateCount,
     errorCount: parseResult.errors.length,
     importedCount,
+    reconciliation,
     rowCount,
     skippedRows,
   };

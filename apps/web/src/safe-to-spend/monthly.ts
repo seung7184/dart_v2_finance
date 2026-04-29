@@ -18,6 +18,20 @@ export type MonthlyStats = {
   actualSpendPerDayCents: number;
 };
 
+export type ManualTrackingStats = {
+  confirmedMatchedManualCount: number;
+  manualTransactionCount: number;
+  suggestedMatchCount: number;
+  unmatchedManualCount: number;
+};
+
+type MatchStatus = 'suggested' | 'confirmed' | 'rejected' | null;
+
+export type MonthlyAnalyticsMatchRow = {
+  matchStatus: MatchStatus;
+  source: string;
+};
+
 const SPENDING_INTENTS = new Set([
   'living_expense',
   'recurring_bill',
@@ -32,6 +46,37 @@ const INFLOW_INTENTS = new Set([
   'income_other',
   'reimbursement_in',
 ]);
+
+export function shouldExcludeFromMonthlyAnalytics(row: MonthlyAnalyticsMatchRow): boolean {
+  return row.source === 'manual' && row.matchStatus === 'confirmed';
+}
+
+export function summarizeManualTracking(rows: MonthlyAnalyticsMatchRow[]): ManualTrackingStats {
+  return rows.reduce<ManualTrackingStats>(
+    (summary, row) => {
+      if (row.source !== 'manual') {
+        return summary;
+      }
+
+      summary.manualTransactionCount += 1;
+      if (row.matchStatus === 'confirmed') {
+        summary.confirmedMatchedManualCount += 1;
+      } else if (row.matchStatus === 'suggested') {
+        summary.suggestedMatchCount += 1;
+      } else {
+        summary.unmatchedManualCount += 1;
+      }
+
+      return summary;
+    },
+    {
+      confirmedMatchedManualCount: 0,
+      manualTransactionCount: 0,
+      suggestedMatchCount: 0,
+      unmatchedManualCount: 0,
+    },
+  );
+}
 
 function daysInMonthCount(year: number, month: number): number {
   // month is 1-indexed
@@ -62,6 +107,22 @@ export async function loadMonthlyStats(
       amount: transactions.amount,
       intent: transactions.intent,
       accountType: accounts.accountType,
+      matchStatus: sql<MatchStatus>`
+        (
+          select tm.match_status
+          from transaction_matches tm
+          where tm.manual_transaction_id = ${transactions.id}
+            and tm.user_id = ${transactions.userId}
+          order by case tm.match_status
+            when 'confirmed' then 1
+            when 'suggested' then 2
+            when 'rejected' then 3
+            else 4
+          end
+          limit 1
+        )
+      `,
+      source: transactions.source,
     })
     .from(transactions)
     .innerJoin(accounts, eq(transactions.accountId, accounts.id))
@@ -79,6 +140,10 @@ export async function loadMonthlyStats(
   let reviewedSpendingCount = 0;
 
   for (const row of txRows) {
+    if (shouldExcludeFromMonthlyAnalytics(row)) {
+      continue;
+    }
+
     const intent = row.intent ?? 'unclassified';
     if (SPENDING_INTENTS.has(intent)) {
       reviewedSpendingCents += Math.abs(row.amount);
@@ -148,8 +213,23 @@ export async function loadMonthlyCategoryBreakdown(
     .select({
       categoryId: transactions.categoryId,
       categoryName: categories.name,
-      amountCents: sql<number>`SUM(ABS(${transactions.amount}))`.mapWith(Number),
-      transactionCount: sql<number>`COUNT(*)`.mapWith(Number),
+      amount: transactions.amount,
+      matchStatus: sql<MatchStatus>`
+        (
+          select tm.match_status
+          from transaction_matches tm
+          where tm.manual_transaction_id = ${transactions.id}
+            and tm.user_id = ${transactions.userId}
+          order by case tm.match_status
+            when 'confirmed' then 1
+            when 'suggested' then 2
+            when 'rejected' then 3
+            else 4
+          end
+          limit 1
+        )
+      `,
+      source: transactions.source,
     })
     .from(transactions)
     .leftJoin(categories, eq(transactions.categoryId, categories.id))
@@ -161,16 +241,69 @@ export async function loadMonthlyCategoryBreakdown(
         eq(transactions.reviewStatus, 'reviewed'),
         inArray(transactions.intent, [...CATEGORY_SPENDING_INTENTS]),
       ),
-    )
-    .groupBy(transactions.categoryId, categories.name)
-    .orderBy(sql`SUM(ABS(${transactions.amount})) DESC`);
+    );
 
-  return rows.map((row) => ({
-    categoryId: row.categoryId ?? null,
-    categoryName: row.categoryName ?? 'Uncategorized',
-    amountCents: row.amountCents,
-    transactionCount: row.transactionCount,
-  }));
+  const grouped = new Map<string, CategoryBreakdownRow>();
+
+  for (const row of rows) {
+    if (shouldExcludeFromMonthlyAnalytics(row)) {
+      continue;
+    }
+
+    const key = row.categoryId ?? '__uncategorized__';
+    const current = grouped.get(key) ?? {
+      categoryId: row.categoryId ?? null,
+      categoryName: row.categoryName ?? 'Uncategorized',
+      amountCents: 0,
+      transactionCount: 0,
+    };
+    current.amountCents += Math.abs(row.amount);
+    current.transactionCount += 1;
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.values()).sort((left, right) => right.amountCents - left.amountCents);
+}
+
+export async function loadManualTrackingStats(
+  userId: string,
+  year: number,
+  month: number,
+  database: Database = db,
+): Promise<ManualTrackingStats> {
+  const monthStart = startOfMonth(year, month);
+  const monthEnd = endOfMonth(year, month);
+
+  const rows = await database
+    .select({
+      matchStatus: sql<MatchStatus>`
+        (
+          select tm.match_status
+          from transaction_matches tm
+          where tm.manual_transaction_id = ${transactions.id}
+            and tm.user_id = ${transactions.userId}
+          order by case tm.match_status
+            when 'confirmed' then 1
+            when 'suggested' then 2
+            when 'rejected' then 3
+            else 4
+          end
+          limit 1
+        )
+      `,
+      source: transactions.source,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(transactions.source, 'manual'),
+        gte(transactions.occurredAt, monthStart),
+        lt(transactions.occurredAt, monthEnd),
+      ),
+    );
+
+  return summarizeManualTracking(rows);
 }
 
 /**

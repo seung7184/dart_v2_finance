@@ -5,6 +5,7 @@ import {
   db,
   importBatches,
   importRows,
+  transactionMatches,
   transactions,
   type Database,
 } from '@dart/db';
@@ -93,6 +94,20 @@ export function createImportRepository(database: QueryableDatabase = db): Import
       return createdTransaction;
     },
 
+    async createSuggestedTransactionMatch(input) {
+      await database
+        .insert(transactionMatches)
+        .values({
+          importedTransactionId: input.importedTransactionId,
+          manualTransactionId: input.manualTransactionId,
+          matchConfidence: input.matchConfidence,
+          matchReason: input.matchReason,
+          matchStatus: 'suggested',
+          userId: input.userId,
+        })
+        .onConflictDoNothing();
+    },
+
     async findCategoryByName(name) {
       const [category] = await database
         .select({ id: categories.id })
@@ -126,6 +141,36 @@ export function createImportRepository(database: QueryableDatabase = db): Import
         .limit(1);
 
       return batch ?? null;
+    },
+
+    async findManualMatchCandidates(userId) {
+      const rows = await database
+        .select({
+          accountId: transactions.accountId,
+          accountType: accounts.accountType,
+          amountCents: transactions.amount,
+          id: transactions.id,
+          merchantName: transactions.merchantName,
+          occurredAt: transactions.occurredAt,
+          rawDescription: transactions.rawDescription,
+          source: transactions.source,
+          userId: transactions.userId,
+        })
+        .from(transactions)
+        .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+        .where(and(eq(transactions.userId, userId), eq(transactions.source, 'manual')));
+
+      return rows.map((row) => ({
+        accountId: row.accountId,
+        accountType: row.accountType,
+        amountCents: row.amountCents,
+        id: row.id,
+        merchantName: row.merchantName ?? null,
+        occurredAt: row.occurredAt,
+        rawDescription: row.rawDescription,
+        source: 'manual' as const,
+        userId: row.userId,
+      }));
     },
 
     async findTransactionByExternalId(accountId, externalId) {
