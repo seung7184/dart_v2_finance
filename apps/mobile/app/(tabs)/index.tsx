@@ -4,10 +4,12 @@ import { SafeAreaView, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 
 import { formatEUR } from '@dart/core';
 
+import { useMobileAuthSession } from '@/src/auth/session-provider';
 import { getRevenueCatBillingStateFromRuntimeEnv } from '@/src/billing/revenuecat';
 import { mobileColors, mobileRadius } from '@/src/theme';
 
 export default function HomeScreen() {
+  const { signOut, state } = useMobileAuthSession();
   const bills = [
     { name: 'Rent', dueLabel: 'Due Apr 25', amountCents: 85000 },
     { name: 'Spotify', dueLabel: 'Due Apr 23', amountCents: 1199 },
@@ -34,6 +36,14 @@ export default function HomeScreen() {
               Conservative daily guide based on your cash, upcoming obligations, and planned
               investing until payday.
             </Text>
+          </View>
+          <View style={styles.sessionRow}>
+            <Text style={styles.sessionText}>
+              {state.status === 'signed_in' ? state.user.email ?? 'Signed in' : 'Signed out'}
+            </Text>
+            <Pressable onPress={signOut} style={styles.signOutButton}>
+              <Text style={styles.signOutText}>Sign out</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -130,6 +140,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   header: {
+    gap: 16,
     paddingTop: 8,
     paddingBottom: 12,
   },
@@ -152,6 +163,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: 10,
+  },
+  sessionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  sessionText: {
+    color: mobileColors.textFaint,
+    flex: 1,
+    fontSize: 12,
+  },
+  signOutButton: {
+    alignItems: 'center',
+    backgroundColor: mobileColors.surface,
+    borderColor: mobileColors.border,
+    borderRadius: mobileRadius.pill,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  signOutText: {
+    color: mobileColors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: mobileColors.surface,
