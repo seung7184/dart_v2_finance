@@ -11,6 +11,7 @@ import {
   loadAvailableMonths,
   loadManualTrackingStats,
   loadMonthlyCategoryBreakdown,
+  loadMonthlyCumulativeSpending,
   loadMonthlyStats,
 } from '@/safe-to-spend/monthly';
 import { loadMerchantInsights, type MerchantInsights } from '@/merchants/insights';
@@ -49,6 +50,238 @@ function centsParts(cents: number) {
     euros: Math.floor(Math.abs(cents) / 100),
     cents: String(Math.abs(cents) % 100).padStart(2, '0'),
   };
+}
+
+function chartPath(points: Array<{ x: number; y: number }>): string {
+  return points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(' ');
+}
+
+function CumulativeSpendingChartCard({
+  points,
+  year,
+  month,
+}: {
+  points: Awaited<ReturnType<typeof loadMonthlyCumulativeSpending>>;
+  year: number;
+  month: number;
+}) {
+  const width = 720;
+  const height = 260;
+  const padding = { top: 24, right: 28, bottom: 40, left: 52 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const maxAmountCents = Math.max(...points.map((point) => point.amountCents), 0);
+  const hasSpending = maxAmountCents > 0;
+  const yMax = hasSpending ? maxAmountCents : 100;
+  const totalCents = points.at(-1)?.amountCents ?? 0;
+  const midIndex = points.length > 0 ? Math.floor((points.length - 1) / 2) : 0;
+  const dateFormatter = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  const monthLabel = dateFormatter.format(new Date(Date.UTC(year, month - 1, 1)));
+
+  const svgPoints = points.map((point, index) => {
+    const x =
+      padding.left + (points.length > 1 ? (index / (points.length - 1)) * plotWidth : 0);
+    const y = padding.top + plotHeight - (point.amountCents / yMax) * plotHeight;
+    return { x, y };
+  });
+  const linePath = chartPath(svgPoints);
+  const firstPoint = svgPoints[0];
+  const lastPoint = svgPoints.at(-1);
+  const areaPath =
+    firstPoint && lastPoint
+      ? `${linePath} L ${lastPoint.x.toFixed(2)} ${padding.top + plotHeight} L ${firstPoint.x.toFixed(
+          2,
+        )} ${padding.top + plotHeight} Z`
+      : '';
+
+  const labelPoints = [
+    points[0] ?? { day: 1, amountCents: 0 },
+    points[midIndex] ?? { day: 1, amountCents: 0 },
+    points.at(-1) ?? { day: 1, amountCents: 0 },
+  ];
+
+  return (
+    <section
+      style={{
+        background: 'var(--surface-1)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 16,
+        padding: '22px 24px 18px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 18,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 18,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <div style={eyebrowStyle()}>Cumulative spending</div>
+          <h2
+            style={{
+              margin: '6px 0 0',
+              color: 'var(--text-primary)',
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Reviewed spending over the selected month
+          </h2>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{monthLabel}</div>
+          <div
+            style={{
+              marginTop: 4,
+              color: 'var(--text-primary)',
+              fontSize: 28,
+              fontWeight: 700,
+              letterSpacing: '-0.03em',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {formatEUR(totalCents)}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          minHeight: 260,
+          borderRadius: 12,
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border-subtle)',
+          overflow: 'hidden',
+        }}
+      >
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label={`Cumulative reviewed spending for ${monthLabel}`}
+          style={{ width: '100%', height: '100%', display: 'block', color: 'var(--accent-500)' }}
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="cumulative-spending-fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+            const y = padding.top + ratio * plotHeight;
+            return (
+              <line
+                key={ratio}
+                x1={padding.left}
+                x2={width - padding.right}
+                y1={y}
+                y2={y}
+                stroke="var(--border-subtle)"
+                strokeWidth="1"
+              />
+            );
+          })}
+          {hasSpending && areaPath ? (
+            <path d={areaPath} fill="url(#cumulative-spending-fill)" />
+          ) : (
+            <rect
+              x={padding.left}
+              y={padding.top}
+              width={plotWidth}
+              height={plotHeight}
+              rx="10"
+              fill="none"
+              stroke="var(--border-default)"
+              strokeDasharray="8 8"
+            />
+          )}
+          {linePath ? (
+            <path
+              d={linePath}
+              fill="none"
+              stroke={hasSpending ? 'currentColor' : 'var(--border-strong)'}
+              strokeWidth={hasSpending ? 4 : 2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : null}
+          {lastPoint && hasSpending ? (
+            <circle
+              cx={lastPoint.x}
+              cy={lastPoint.y}
+              r="5"
+              fill="var(--surface-2)"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+          ) : null}
+          <text
+            x={padding.left}
+            y={height - 14}
+            fill="var(--text-tertiary)"
+            fontSize="12"
+            fontWeight="600"
+          >
+            Day {labelPoints[0]?.day}
+          </text>
+          <text
+            x={padding.left + plotWidth / 2}
+            y={height - 14}
+            fill="var(--text-tertiary)"
+            fontSize="12"
+            fontWeight="600"
+            textAnchor="middle"
+          >
+            Day {labelPoints[1]?.day}
+          </text>
+          <text
+            x={width - padding.right}
+            y={height - 14}
+            fill="var(--text-tertiary)"
+            fontSize="12"
+            fontWeight="600"
+            textAnchor="end"
+          >
+            Day {labelPoints[2]?.day}
+          </text>
+          <text
+            x={padding.left}
+            y={padding.top + 4}
+            fill="var(--text-tertiary)"
+            fontSize="12"
+            fontWeight="600"
+          >
+            {formatEUR(yMax)}
+          </text>
+          {!hasSpending ? (
+            <text
+              x={width / 2}
+              y={height / 2}
+              fill="var(--text-tertiary)"
+              fontSize="14"
+              fontWeight="600"
+              textAnchor="middle"
+            >
+              No reviewed spending yet
+            </text>
+          ) : null}
+        </svg>
+      </div>
+    </section>
+  );
 }
 
 // ── Month progress card ───────────────────────────────────────────────────────
@@ -312,14 +545,14 @@ function MerchantInsightsCard({
               key={m.merchantName}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 44px auto',
+                gridTemplateColumns: 'minmax(0, 1fr) 56px auto',
                 alignItems: 'center',
                 gap: 16,
-                padding: '10px 20px',
+                padding: '14px 20px',
                 borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)',
               }}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
                     {m.merchantName}
@@ -343,11 +576,12 @@ function MerchantInsightsCard({
                 </div>
                 <div
                   style={{
-                    height: 3,
+                    height: 10,
                     borderRadius: 999,
-                    background: 'var(--border-subtle)',
-                    width: 100,
+                    background: 'var(--surface-2)',
+                    width: '100%',
                     overflow: 'hidden',
+                    border: '1px solid var(--border-subtle)',
                   }}
                 >
                   <div
@@ -356,6 +590,7 @@ function MerchantInsightsCard({
                       borderRadius: 999,
                       background: 'var(--accent-500)',
                       width: `${m.concentrationPct}%`,
+                      minWidth: m.concentrationPct > 0 ? 4 : 0,
                     }}
                   />
                 </div>
@@ -462,14 +697,14 @@ function CategoryBreakdownCard({
             key={row.categoryId ?? '__uncategorized__'}
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr auto auto',
+              gridTemplateColumns: 'minmax(0, 1fr) 88px auto',
               alignItems: 'center',
               gap: 16,
-              padding: '12px 20px',
+              padding: '14px 20px',
               borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
               <span
                 style={{
                   fontSize: 13,
@@ -482,11 +717,12 @@ function CategoryBreakdownCard({
               </span>
               <div
                 style={{
-                  height: 3,
+                  height: 10,
                   borderRadius: 999,
-                  background: 'var(--border-subtle)',
-                  width: 120,
+                  background: 'var(--surface-2)',
+                  width: '100%',
                   overflow: 'hidden',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 <div
@@ -495,6 +731,7 @@ function CategoryBreakdownCard({
                     borderRadius: 999,
                     background: row.categoryId ? 'var(--accent-500)' : 'var(--border-default)',
                     width: `${pct}%`,
+                    minWidth: pct > 0 ? 4 : 0,
                   }}
                 />
               </div>
@@ -504,6 +741,7 @@ function CategoryBreakdownCard({
                 fontSize: 11,
                 color: 'var(--text-tertiary)',
                 fontVariantNumeric: 'tabular-nums',
+                textAlign: 'right' as const,
               }}
             >
               {row.transactionCount} tx · {pct}%
@@ -564,6 +802,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
 
   let availableMonths: Array<{ year: number; month: number; label: string }> = [];
   let monthlyStats: Awaited<ReturnType<typeof loadMonthlyStats>> | null = null;
+  let cumulativeSpending: Awaited<ReturnType<typeof loadMonthlyCumulativeSpending>> = [];
   let manualTrackingStats: Awaited<ReturnType<typeof loadManualTrackingStats>> | null = null;
   let categoryBreakdown: Awaited<ReturnType<typeof loadMonthlyCategoryBreakdown>> = [];
   let merchantInsights: MerchantInsights | null = null;
@@ -573,6 +812,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
     [
       availableMonths,
       monthlyStats,
+      cumulativeSpending,
       manualTrackingStats,
       categoryBreakdown,
       merchantInsights,
@@ -580,6 +820,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
       Promise.all([
         loadAvailableMonths(userId, today),
         loadMonthlyStats(userId, selectedYear, selectedMonth, today),
+        loadMonthlyCumulativeSpending(userId, selectedYear, selectedMonth),
         loadManualTrackingStats(userId, selectedYear, selectedMonth),
         loadMonthlyCategoryBreakdown(userId, selectedYear, selectedMonth),
         loadMerchantInsights(userId, selectedYear, selectedMonth),
@@ -635,6 +876,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
       </div>
 
       <div style={{ padding: '24px 32px 48px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <CumulativeSpendingChartCard
+          points={cumulativeSpending}
+          year={selectedYear}
+          month={selectedMonth}
+        />
+
         {/* Month progress */}
         {monthlyStats && (
           <MonthlyStatsCard stats={monthlyStats} isCurrentMonth={isCurrentMonth} />

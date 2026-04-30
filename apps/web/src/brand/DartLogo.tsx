@@ -1,7 +1,21 @@
-import type { SVGProps, CSSProperties } from 'react';
+import type { CSSProperties, HTMLAttributes, SVGProps } from 'react';
 
 type DartLogoIconProps = SVGProps<SVGSVGElement> & {
   title?: string;
+};
+
+type LockupSize = 'sm' | 'md' | 'lg';
+
+type DartLogoLockupProps = HTMLAttributes<HTMLDivElement> & {
+  showTagline?: boolean;
+  size?: LockupSize;
+  iconSize?: number;
+};
+
+const LOCKUP_SIZES: Record<LockupSize, { iconSize: number; fontSize: number; gap: number }> = {
+  sm: { iconSize: 24, fontSize: 16, gap: 7 },
+  md: { iconSize: 42, fontSize: 28, gap: 14 },
+  lg: { iconSize: 48, fontSize: 32, gap: 16 },
 };
 
 export function DartLogoIcon({
@@ -22,45 +36,40 @@ export function DartLogoIcon({
       {...props}
     >
       {title ? <title>{title}</title> : null}
-      {/* Rounded square outline — 5pt weight, inset so stroke stays inside viewBox */}
       <rect
-        x="2.5"
-        y="2.5"
-        width="63"
-        height="63"
-        rx="11.5"
+        x="3"
+        y="3"
+        width="62"
+        height="62"
+        rx="12"
+        stroke="currentColor"
+        strokeWidth="6"
+      />
+      <path
+        d="M34 20 Q31 34 20 51"
+        stroke="currentColor"
+        strokeWidth="5.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M34 20 Q37 34 48 51"
+        stroke="currentColor"
+        strokeWidth="5.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M22 35 Q34 40.5 46 35"
         stroke="currentColor"
         strokeWidth="5"
-      />
-      {/* Calligraphic A — left leg, humanist slight-curve outward */}
-      <path
-        d="M34 22 Q32 36 21 50"
-        stroke="currentColor"
-        strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Calligraphic A — right leg */}
       <path
-        d="M34 22 Q36 36 47 50"
+        d="M29.5 20 Q34 13.5 38.5 20"
         stroke="currentColor"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Curved crossbar — soft bowl, dips slightly below midline */}
-      <path
-        d="M23.15 34.1 Q34 38.6 44.85 34.1"
-        stroke="currentColor"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Calligraphic loop above apex — open arc terminal */}
-      <path
-        d="M30 21 Q34 15 38 21"
-        stroke="currentColor"
-        strokeWidth="4"
+        strokeWidth="5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -68,92 +77,80 @@ export function DartLogoIcon({
   );
 }
 
-type LockupSize = 'sm' | 'md' | 'lg';
-
-interface DartLogoLockupProps {
-  showTagline?: boolean;
-  size?: LockupSize;
-  className?: string;
-  style?: CSSProperties;
-}
-
-const LOCKUP_SIZES: Record<LockupSize, { iconSize: number; fontSize: number; gap: number }> = {
-  sm: { iconSize: 24, fontSize: 16, gap: 6 },
-  md: { iconSize: 36, fontSize: 24, gap: 10 },
-  lg: { iconSize: 48, fontSize: 36, gap: 14 },
-};
-
 export function DartLogoLockup({
-  showTagline = false,
+  showTagline = true,
   size = 'md',
-  className,
+  iconSize,
   style,
+  ...props
 }: DartLogoLockupProps) {
-  const { iconSize, fontSize, gap } = LOCKUP_SIZES[size];
+  const resolvedSize = LOCKUP_SIZES[size];
+  const resolvedIconSize = iconSize ?? resolvedSize.iconSize;
+  const rootStyle: CSSProperties = {
+    display: 'inline-flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: showTagline ? 9 : 0,
+    color: 'var(--text-primary)',
+    ...style,
+  };
 
   return (
-    <div
-      className={className}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 12,
-        color: 'var(--text-primary)',
-        ...style,
-      }}
-    >
+    <div {...props} style={rootStyle}>
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap,
+          justifyContent: 'center',
+          gap: resolvedSize.gap,
+          color: 'currentColor',
+          whiteSpace: 'nowrap',
         }}
       >
         <span
           style={{
-            fontSize,
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
+            fontSize: resolvedSize.fontSize,
             lineHeight: 1,
+            fontWeight: 800,
+            letterSpacing: '0.04em',
             fontFamily: 'var(--font-sans)',
           }}
         >
           DART
         </span>
         <DartLogoIcon
-          width={iconSize}
-          height={iconSize}
-          title="Dart Finance"
-          style={{ flexShrink: 0 }}
+          width={resolvedIconSize}
+          height={resolvedIconSize}
+          title="Dart Finance logo"
+          style={{ flex: '0 0 auto' }}
         />
         <span
           style={{
-            fontSize,
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
+            fontSize: resolvedSize.fontSize,
             lineHeight: 1,
+            fontWeight: 800,
+            letterSpacing: '0.04em',
             fontFamily: 'var(--font-sans)',
           }}
         >
           FINANCE
         </span>
       </div>
-      {showTagline && (
-        <span
+      {showTagline ? (
+        <div
           style={{
             fontSize: 11,
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
+            lineHeight: 1.2,
+            fontWeight: 600,
+            letterSpacing: '0.18em',
             color: 'var(--text-tertiary)',
-            fontWeight: 500,
-            lineHeight: 1,
+            textTransform: 'uppercase',
             fontFamily: 'var(--font-sans)',
           }}
         >
           SPEND SAFELY. GROW QUIETLY.
-        </span>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }

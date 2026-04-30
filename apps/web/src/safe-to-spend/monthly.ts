@@ -32,6 +32,17 @@ export type MonthlyAnalyticsMatchRow = {
   source: string;
 };
 
+export type MonthlyCumulativeSpendingPoint = {
+  day: number;
+  amountCents: number;
+};
+
+export type MonthlyCumulativeSpendingRow = MonthlyAnalyticsMatchRow & {
+  amount: number;
+  occurredAt: Date;
+  intent: string | null;
+};
+
 const SPENDING_INTENTS = new Set([
   'living_expense',
   'recurring_bill',
@@ -89,6 +100,47 @@ function startOfMonth(year: number, month: number): Date {
 
 function endOfMonth(year: number, month: number): Date {
   return new Date(Date.UTC(year, month, 1));
+}
+
+export function summarizeMonthlyCumulativeSpendingRows({
+  year,
+  month,
+  rows,
+}: {
+  year: number;
+  month: number;
+  rows: MonthlyCumulativeSpendingRow[];
+}): MonthlyCumulativeSpendingPoint[] {
+  const daysInMonth = daysInMonthCount(year, month);
+  const dailySpendingCents = Array.from({ length: daysInMonth }, () => 0);
+
+  for (const row of rows) {
+    if (shouldExcludeFromMonthlyAnalytics(row)) {
+      continue;
+    }
+
+    const intent = row.intent ?? 'unclassified';
+    if (!SPENDING_INTENTS.has(intent)) {
+      continue;
+    }
+
+    const day = row.occurredAt.getUTCDate();
+    if (day < 1 || day > daysInMonth) {
+      continue;
+    }
+
+    const dayIndex = day - 1;
+    dailySpendingCents[dayIndex] = (dailySpendingCents[dayIndex] ?? 0) + Math.trunc(Math.abs(row.amount));
+  }
+
+  let cumulativeCents = 0;
+  return dailySpendingCents.map((amountCents, index) => {
+    cumulativeCents += amountCents;
+    return {
+      day: index + 1,
+      amountCents: cumulativeCents,
+    };
+  });
 }
 
 export async function loadMonthlyStats(
@@ -178,6 +230,52 @@ export async function loadMonthlyStats(
     daysInMonth: totalDays,
     actualSpendPerDayCents,
   };
+}
+
+export async function loadMonthlyCumulativeSpending(
+  userId: string,
+  year: number,
+  month: number,
+  database: Database = db,
+): Promise<MonthlyCumulativeSpendingPoint[]> {
+  const monthStart = startOfMonth(year, month);
+  const monthEnd = endOfMonth(year, month);
+
+  const rows = await database
+    .select({
+      amount: transactions.amount,
+      occurredAt: transactions.occurredAt,
+      intent: transactions.intent,
+      matchStatus: sql<MatchStatus>`
+        (
+          select tm.match_status
+          from transaction_matches tm
+          where tm.manual_transaction_id = ${transactions.id}
+            and tm.user_id = ${transactions.userId}
+          order by case tm.match_status
+            when 'confirmed' then 1
+            when 'suggested' then 2
+            when 'rejected' then 3
+            else 4
+          end
+          limit 1
+        )
+      `,
+      source: transactions.source,
+    })
+    .from(transactions)
+    .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        gte(transactions.occurredAt, monthStart),
+        lt(transactions.occurredAt, monthEnd),
+        eq(transactions.reviewStatus, 'reviewed'),
+        inArray(transactions.intent, [...CATEGORY_SPENDING_INTENTS]),
+      ),
+    );
+
+  return summarizeMonthlyCumulativeSpendingRows({ year, month, rows });
 }
 
 export type CategoryBreakdownRow = {

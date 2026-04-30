@@ -67,11 +67,14 @@ export default function SignInPage() {
       <Link
         href="/"
         style={{
+          display: 'flex',
+          alignItems: 'center',
           marginBottom: 40,
           textDecoration: 'none',
+          color: 'var(--text-primary)',
         }}
       >
-        <DartLogoLockup size="md" showTagline={true} />
+        <DartLogoLockup size="lg" showTagline={true} />
       </Link>
 
       {/* Card */}
@@ -146,7 +149,7 @@ export default function SignInPage() {
                   fontSize: 13,
                   color: 'var(--warning)',
                   background: 'var(--warning-tint)',
-                  border: '1px solid rgba(230,194,122,0.24)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: 8,
                   padding: '10px 12px',
                 }}
@@ -180,7 +183,7 @@ export default function SignInPage() {
             style={{
               padding: '16px',
               background: 'var(--accent-tint)',
-              border: '1px solid rgba(59,130,246,0.22)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: 10,
               display: 'flex',
               flexDirection: 'column',
