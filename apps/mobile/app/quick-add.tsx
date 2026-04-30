@@ -1,66 +1,140 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { formatEUR } from '@dart/core';
 
+import { fetchMobileCategories, type MobileCategoryOption } from '@/src/api/categories';
+import { postMobileManualTransaction } from '@/src/api/transactions';
+import { useMobileAuthSession } from '@/src/auth/session-provider';
 import { mobileColors, mobileRadius } from '@/src/theme';
+import {
+  appendDigit,
+  buildQuickAddPayload,
+  digitsToAmountCents,
+  FALLBACK_CATEGORIES,
+  isValidAmountCents,
+  removeLastDigit,
+  resolveCategoryId,
+} from '@/src/transactions/quick-add';
 
-const CATEGORY_OPTIONS = ['Groceries', 'Transport', 'Dining', 'Health', 'Other'] as const;
-const INITIAL_CATEGORY = CATEGORY_OPTIONS[0];
-const SAVE_DELAY_MS = 800;
-
-type CategoryOption = (typeof CATEGORY_OPTIONS)[number];
+type SaveState =
+  | { kind: 'idle' }
+  | { kind: 'saving' }
+  | { kind: 'success'; amountCents: number }
+  | { kind: 'error'; message: string };
 
 export default function QuickAddScreen() {
+  const { state: authState } = useMobileAuthSession();
+
   const [amountDigits, setAmountDigits] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryOption>(INITIAL_CATEGORY);
-  const [isSaving, setIsSaving] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [categories, setCategories] = useState<MobileCategoryOption[]>(FALLBACK_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState<MobileCategoryOption>(
+    FALLBACK_CATEGORIES[0]!,
+  );
+  const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load table-backed categories; keep fallback list if unavailable
+  useEffect(() => {
+    if (authState.status !== 'signed_in') {
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchMobileCategories().then((result) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (result.status === 'ok' && result.data.length > 0) {
+        setCategories(result.data);
+        setSelectedCategory(result.data[0]!);
+      }
+      // On failure keep FALLBACK_CATEGORIES — documented fallback behavior
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authState.status]);
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
       }
     };
   }, []);
 
-  const amountCents = amountDigits.length > 0 ? Number.parseInt(amountDigits, 10) : 0;
-  const isSaveDisabled = amountCents <= 0 || isSaving;
+  const amountCents = digitsToAmountCents(amountDigits);
+  const isSaving = saveState.kind === 'saving';
+  const isSaveDisabled = !isValidAmountCents(amountCents) || isSaving || authState.status !== 'signed_in';
 
-  const handleDigitPress = (digit: string) => {
+  const handleDigitPress = useCallback((digit: string) => {
     if (isSaving) {
       return;
     }
+    setAmountDigits((current) => appendDigit(current, digit));
+  }, [isSaving]);
 
-    setAmountDigits((currentDigits) => {
-      const nextDigits = `${currentDigits}${digit}`.replace(/^0+(?=\d)/, '');
-      return nextDigits.slice(0, 6);
-    });
-  };
-
-  const handleBackspace = () => {
+  const handleBackspace = useCallback(() => {
     if (isSaving) {
       return;
     }
+    setAmountDigits((current) => removeLastDigit(current));
+  }, [isSaving]);
 
-    setAmountDigits((currentDigits) => currentDigits.slice(0, -1));
-  };
-
-  const handleSave = () => {
+  const handleSave = useCallback(async () => {
     if (isSaveDisabled) {
       return;
     }
 
-    setIsSaving(true);
-    timerRef.current = setTimeout(() => {
-      setIsSaving(false);
+    if (authState.status !== 'signed_in') {
+      setSaveState({ kind: 'error', message: 'You must be signed in to save an expense.' });
+      return;
+    }
+
+    setSaveState({ kind: 'saving' });
+
+    const categoryId = resolveCategoryId(selectedCategory);
+    const payload = buildQuickAddPayload(amountCents, categoryId, '');
+    const result = await postMobileManualTransaction(payload);
+
+    if (result.status === 'auth_required') {
+      setSaveState({ kind: 'error', message: 'Session expired. Please sign out and sign in again.' });
+      return;
+    }
+
+    if (result.status === 'unavailable') {
+      const message =
+        result.message === 'NO_ACCOUNT_CONFIGURED'
+          ? 'No account is set up yet. Add an account on the web app first.'
+          : result.message === 'INVALID_AMOUNT'
+            ? 'Amount is not valid.'
+            : `Could not save: ${result.message}`;
+      setSaveState({ kind: 'error', message });
+      return;
+    }
+
+    const savedCents = amountCents;
+    setSaveState({ kind: 'success', amountCents: savedCents });
+
+    successTimerRef.current = setTimeout(() => {
       setAmountDigits('');
-      setSelectedCategory(INITIAL_CATEGORY);
+      setSelectedCategory(categories[0] ?? FALLBACK_CATEGORIES[0]!);
+      setSaveState({ kind: 'idle' });
       router.back();
-    }, SAVE_DELAY_MS);
-  };
+    }, 1_200);
+  }, [isSaveDisabled, authState.status, selectedCategory, amountCents, categories]);
+
+  const handleRetry = useCallback(() => {
+    setSaveState({ kind: 'idle' });
+  }, []);
+
+  const isSignedOut = authState.status === 'signed_out' || authState.status === 'config_missing';
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -74,29 +148,41 @@ export default function QuickAddScreen() {
           <Text style={styles.subtitle}>Today · Quick capture</Text>
         </View>
 
+        {isSignedOut && (
+          <View style={styles.authBanner}>
+            <Text style={styles.authBannerText}>Sign in to save expenses.</Text>
+          </View>
+        )}
+
         <View style={styles.amountBlock}>
           <Text style={styles.currencyLabel}>EUR</Text>
           <Text style={styles.amountValue}>{formatEUR(amountCents)}</Text>
-          <Text style={styles.amountHint}>Local-only save simulation. No API or DB call.</Text>
         </View>
 
-        <View style={styles.categoryRow}>
-          {CATEGORY_OPTIONS.map((category) => {
-            const isActive = category === selectedCategory;
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryRow}
+        >
+          {categories.map((category) => {
+            const isActive = category.id === selectedCategory.id && category.name === selectedCategory.name;
 
             return (
               <Pressable
-                key={category}
+                key={`${category.id}-${category.name}`}
                 onPress={() => setSelectedCategory(category)}
                 style={[styles.categoryChip, isActive ? styles.categoryChipActive : undefined]}
               >
-                <Text style={[styles.categoryChipText, isActive ? styles.categoryChipTextActive : undefined]}>
-                  {category}
+                <Text
+                  style={[styles.categoryChipText, isActive ? styles.categoryChipTextActive : undefined]}
+                >
+                  {category.name}
                 </Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         <View style={styles.keypad}>
           {[
@@ -123,19 +209,35 @@ export default function QuickAddScreen() {
           ))}
         </View>
 
+        {saveState.kind === 'error' && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{saveState.message}</Text>
+            <Pressable onPress={handleRetry} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Try again</Text>
+            </Pressable>
+          </View>
+        )}
+
         <Pressable
-          onPress={handleSave}
+          onPress={() => void handleSave()}
           style={[
             styles.saveButton,
             isSaveDisabled ? styles.saveButtonDisabled : undefined,
-            isSaving ? styles.saveButtonSaved : undefined,
+            saveState.kind === 'success' ? styles.saveButtonSaved : undefined,
           ]}
+          disabled={isSaveDisabled}
         >
           <Text style={styles.saveButtonText}>
-            {isSaving ? `Saved ${formatEUR(amountCents)}` : `Save ${formatEUR(amountCents)}`}
+            {saveState.kind === 'saving'
+              ? 'Saving…'
+              : saveState.kind === 'success'
+                ? `Saved ${formatEUR(saveState.amountCents)}`
+                : `Save ${formatEUR(amountCents)}`}
           </Text>
           <Text style={styles.saveButtonMeta}>
-            {isSaving ? selectedCategory : 'Fast add for today'}
+            {saveState.kind === 'saving' || saveState.kind === 'success'
+              ? selectedCategory.name
+              : 'Fast add for today'}
           </Text>
         </Pressable>
       </View>
@@ -184,6 +286,18 @@ const styles = StyleSheet.create({
     color: mobileColors.textMuted,
     fontSize: 14,
   },
+  authBanner: {
+    backgroundColor: mobileColors.surfaceHover,
+    borderRadius: mobileRadius.card,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  authBannerText: {
+    color: mobileColors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+  },
   amountBlock: {
     alignItems: 'center',
     paddingVertical: 28,
@@ -202,16 +316,12 @@ const styles = StyleSheet.create({
     letterSpacing: -2,
     marginTop: 10,
   },
-  amountHint: {
-    color: mobileColors.textMuted,
-    fontSize: 13,
-    marginTop: 10,
+  categoryScroll: {
+    marginBottom: 22,
   },
   categoryRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 22,
   },
   categoryChip: {
     backgroundColor: mobileColors.surface,
@@ -256,6 +366,27 @@ const styles = StyleSheet.create({
   keyText: {
     color: mobileColors.text,
     fontSize: 28,
+    fontWeight: '600',
+  },
+  errorBanner: {
+    backgroundColor: mobileColors.surfaceHover,
+    borderRadius: mobileRadius.card,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  errorBannerText: {
+    color: mobileColors.text,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  retryButton: {
+    alignSelf: 'center',
+  },
+  retryButtonText: {
+    color: mobileColors.accent,
+    fontSize: 14,
     fontWeight: '600',
   },
   saveButton: {
