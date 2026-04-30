@@ -22,45 +22,45 @@ export function DartLogoIcon({
       {...props}
     >
       {title ? <title>{title}</title> : null}
-      {/* Rounded square outline — ink weight matches glyph */}
+      {/* Rounded square outline — 5pt weight, inset so stroke stays inside viewBox */}
       <rect
-        x="2"
-        y="2"
-        width="64"
-        height="64"
-        rx="14"
+        x="2.5"
+        y="2.5"
+        width="63"
+        height="63"
+        rx="11.5"
+        stroke="currentColor"
+        strokeWidth="5"
+      />
+      {/* Calligraphic A — left leg, humanist slight-curve outward */}
+      <path
+        d="M34 22 Q32 36 21 50"
         stroke="currentColor"
         strokeWidth="4"
-      />
-      {/* Calligraphic A — left leg, slight outward curve */}
-      <path
-        d="M34 22 Q31.5 35 21 50"
-        stroke="currentColor"
-        strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Calligraphic A — right leg, slight outward curve */}
+      {/* Calligraphic A — right leg */}
       <path
-        d="M34 22 Q36.5 35 47 50"
+        d="M34 22 Q36 36 47 50"
         stroke="currentColor"
-        strokeWidth="3"
+        strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Curved crossbar — soft bowl dipping below midline */}
+      {/* Curved crossbar — soft bowl, dips slightly below midline */}
       <path
-        d="M23.15 34.1 Q34 39 44.85 34.1"
+        d="M23.15 34.1 Q34 38.6 44.85 34.1"
         stroke="currentColor"
-        strokeWidth="3"
+        strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       {/* Calligraphic loop above apex — open arc terminal */}
       <path
-        d="M30 22 Q34 15.5 38 22"
+        d="M30 21 Q34 15 38 21"
         stroke="currentColor"
-        strokeWidth="3"
+        strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -79,8 +79,8 @@ interface DartLogoLockupProps {
 
 const LOCKUP_SIZES: Record<LockupSize, { iconSize: number; fontSize: number; gap: number }> = {
   sm: { iconSize: 24, fontSize: 16, gap: 6 },
-  md: { iconSize: 32, fontSize: 22, gap: 10 },
-  lg: { iconSize: 40, fontSize: 28, gap: 14 },
+  md: { iconSize: 36, fontSize: 24, gap: 10 },
+  lg: { iconSize: 48, fontSize: 36, gap: 14 },
 };
 
 export function DartLogoLockup({
@@ -98,7 +98,7 @@ export function DartLogoLockup({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
         color: 'var(--text-primary)',
         ...style,
       }}
@@ -142,8 +142,8 @@ export function DartLogoLockup({
       {showTagline && (
         <span
           style={{
-            fontSize: 10,
-            letterSpacing: '0.18em',
+            fontSize: 11,
+            letterSpacing: '0.2em',
             textTransform: 'uppercase',
             color: 'var(--text-tertiary)',
             fontWeight: 500,

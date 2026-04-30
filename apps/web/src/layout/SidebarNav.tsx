@@ -39,7 +39,7 @@ export function SidebarBrand() {
           flexShrink: 0,
         }}
       >
-        <DartLogoIcon width={20} height={20} title="Dart Finance logo" />
+        <DartLogoIcon width={22} height={22} title="Dart Finance logo" />
       </div>
       <div
         style={{
