@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { DartLogoIcon } from '@/brand/DartLogo';
+import { DartLockup } from '@/brand/DartLogo';
 
 type NavItem = { label: string; href: string };
 
@@ -19,39 +19,11 @@ export function SidebarBrand() {
   return (
     <div
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
         padding: '4px 8px 12px',
         borderBottom: '1px solid var(--border-subtle)',
       }}
     >
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          background: 'var(--surface-1)',
-          border: '1px solid var(--border-strong)',
-          color: 'var(--text-primary)',
-          display: 'grid',
-          placeItems: 'center',
-          flexShrink: 0,
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
-        <DartLogoIcon width={24} height={24} title="Dart Finance logo" />
-      </div>
-      <div
-        style={{
-          fontSize: 14,
-          color: 'var(--text-primary)',
-          fontWeight: 600,
-          letterSpacing: '-0.01em',
-        }}
-      >
-        Dart Finance
-      </div>
+      <DartLockup variant="app" size="sm" />
     </div>
   );
 }

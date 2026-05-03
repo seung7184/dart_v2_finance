@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DartLockup } from '@/brand/DartLogo';
 
 interface OnboardingLayoutProps {
   step: number;
@@ -51,27 +52,8 @@ export function OnboardingLayout({
           }}
         >
           {/* Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 16, borderBottom: '1px solid var(--border-subtle)' }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                background: 'var(--accent-500)',
-                color: 'var(--text-on-accent)',
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: 800,
-                fontSize: 15,
-                letterSpacing: '-0.02em',
-                flexShrink: 0,
-              }}
-            >
-              D
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-              Dart Finance
-            </span>
+          <div style={{ paddingBottom: 16, borderBottom: '1px solid var(--border-subtle)' }}>
+            <DartLockup variant="app" size="sm" />
           </div>
 
           {/* Intro */}

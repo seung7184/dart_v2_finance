@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SUPABASE_AUTH_CALLBACK_PATH } from '@/auth/constants';
-import { DartLogoLockup } from '@/brand/DartLogo';
+import { DartLockup } from '@/brand/DartLogo';
 
 type SignInState =
   | { status: 'idle' }
@@ -74,7 +74,7 @@ export default function SignInPage() {
           color: 'var(--text-primary)',
         }}
       >
-        <DartLogoLockup size="lg" showTagline={true} />
+        <DartLockup variant="marketing-outline" size="lg" showTagline />
       </Link>
 
       {/* Card */}

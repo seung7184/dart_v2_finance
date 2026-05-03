@@ -2,6 +2,23 @@
 
 Dart Finance is a pnpm/Turborepo monorepo for the Dart Finance web app and shared packages.
 
+## Brand System
+
+Brand components live in `apps/web/src/brand/DartLogo.tsx` and export three primitives:
+
+| Component | Purpose |
+|-----------|---------|
+| `DartGlyph` | The core SVG glyph — rounded-square container + calligraphic A/compass mark. Variants: `filled` (accent-colored bg, inverse glyph), `outline` (stroked border, currentColor glyph), `bare` (glyph paths only). |
+| `DartIcon` | Icon-only alias for compact / favicon / avatar contexts. Defaults to `filled` variant. |
+| `DartLockup` | Icon + wordmark. Variant `app` = filled icon + "Dart Finance" (sidebar/product chrome). Variant `app-outline` = outline icon + "Dart Finance". Variant `marketing-outline` = "DART · icon · FINANCE" ± tagline (landing/auth surfaces). |
+
+**Usage rules:**
+- Product chrome (sidebar, onboarding steps): `<DartLockup variant="app" size="sm" />` — compact filled lockup, not the full marketing wordmark.
+- Auth / sign-in: `<DartLockup variant="marketing-outline" size="lg" showTagline />` — full marketing lockup.
+- Icon-only contexts: `<DartIcon size={24} />`.
+
+Colors are resolved entirely via CSS variables (`--accent-500`, `--text-on-accent`, `--text-primary`, etc.) so the brand adapts to both light and dark themes automatically.
+
 ## Local Validation
 
 ```bash

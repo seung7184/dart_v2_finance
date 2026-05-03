@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { RootTokenRedirect } from '@/auth/root-token-redirect.client';
+import { DartLockup } from '@/brand/DartLogo';
 
 export default function LandingPage() {
   return (
@@ -18,40 +19,8 @@ export default function LandingPage() {
       <RootTokenRedirect />
 
       {/* Brand mark */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          marginBottom: 48,
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: 'var(--accent-500)',
-            color: 'var(--text-on-accent)',
-            display: 'grid',
-            placeItems: 'center',
-            fontWeight: 800,
-            fontSize: 20,
-            letterSpacing: '-0.02em',
-          }}
-        >
-          D
-        </div>
-        <span
-          style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          Dart Finance
-        </span>
+      <div style={{ marginBottom: 48 }}>
+        <DartLockup variant="app" size="md" />
       </div>
 
       {/* Hero number — the product promise */}
